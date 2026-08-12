@@ -441,6 +441,50 @@ public class OpenlistApiService {
     }
   }
 
+  /** 在 OpenList 中创建目录。目录已存在时由调用方负责按幂等语义跳过。 */
+  public void createDirectory(OpenlistConfig config, String path) {
+    mutate(config, "api/fs/mkdir", "/api/fs/mkdir", java.util.Map.of("path", path), "创建目录");
+  }
+
+  /** 将同一源目录下的条目移动到目标目录，不覆盖同名目标。 */
+  public void moveEntries(
+      OpenlistConfig config, String sourceDirectory, String targetDirectory, List<String> names) {
+    if (names == null || names.isEmpty()) {
+      throw new BusinessException("移动文件列表不能为空");
+    }
+    mutate(
+        config,
+        "api/fs/move",
+        "/api/fs/move",
+        java.util.Map.of(
+            "src_dir", sourceDirectory,
+            "dst_dir", targetDirectory,
+            "names", List.copyOf(names)),
+        "移动");
+  }
+
+  private void mutate(
+      OpenlistConfig config,
+      String endpoint,
+      String rateLimitEndpoint,
+      java.util.Map<String, ?> request,
+      String operation) {
+    try {
+      String apiUrl = buildApiUrl(config, endpoint);
+      HttpHeaders headers = mutationHeaders(config);
+      String requestBody = objectMapper.writeValueAsString(request);
+      apiRateLimiter.acquire(config, rateLimitEndpoint);
+      ResponseEntity<String> response =
+          restTemplate.exchange(
+              apiUrl, HttpMethod.POST, new HttpEntity<>(requestBody, headers), String.class);
+      assertSuccessfulMutation(response, operation);
+    } catch (BusinessException e) {
+      throw e;
+    } catch (Exception e) {
+      throw new BusinessException("OpenList " + operation + "失败: " + e.getMessage(), e);
+    }
+  }
+
   /** 将生成的元数据文件上传到 OpenList，已存在时覆盖。 */
   public void uploadFile(
       OpenlistConfig config, String filePath, byte[] content, String contentType) {

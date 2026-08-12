@@ -70,6 +70,7 @@ public final class ManualScrapingDtos {
     private int videoFileCount;
     private String proposedDirectoryName;
     @Builder.Default private List<RenameItem> proposedDirectoryRenames = new ArrayList<>();
+    @Builder.Default private List<String> proposedDirectoryCreates = new ArrayList<>();
     @Builder.Default private List<RenameItem> proposedFileRenames = new ArrayList<>();
     @Builder.Default private List<String> generatedFiles = new ArrayList<>();
     @Builder.Default private List<String> renamedGeneratedFiles = new ArrayList<>();
@@ -82,7 +83,14 @@ public final class ManualScrapingDtos {
   public static class RenameItem {
     private String sourcePath;
     private String sourceName;
+
+    /** 相对剧集根目录的目标目录；为空表示保留在原目录。 */
+    private String targetDirectory;
+
     private String targetName;
+
+    /** video、subtitle、image、nfo 等，仅用于预览和日志。 */
+    private String assetType;
   }
 
   @Data

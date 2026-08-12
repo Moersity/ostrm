@@ -242,6 +242,96 @@ class ManualScrapingServiceTest {
   }
 
   @Test
+  void previewsFlatEpisodesWithImagesSubtitlesAndNfoAsSeasonMediaGroups() {
+    stubTvTaskWithEntries(
+        List.of(
+            entry("Show.S01E01.mkv", "/tv/Show/Show.S01E01.mkv", "file"),
+            entry("Show.S01E01.zh-CN.ass", "/tv/Show/Show.S01E01.zh-CN.ass", "file"),
+            entry("Show.S01E01-thumb.jpg", "/tv/Show/Show.S01E01-thumb.jpg", "file"),
+            entry("Show.S01E01.nfo", "/tv/Show/Show.S01E01.nfo", "file"),
+            entry("S01-poster.jpg", "/tv/Show/S01-poster.jpg", "file"),
+            entry("poster.jpg", "/tv/Show/poster.jpg", "file"),
+            entry("tvshow.nfo", "/tv/Show/tvshow.nfo", "file")));
+    when(tmdbApiService.getTvDetail(1399)).thenReturn(tvDetail());
+
+    PreviewRequest request = new PreviewRequest();
+    request.setDirectoryPath("/tv/Show");
+    request.setTmdbId(1399);
+
+    Preview preview = service.preview(7L, request);
+
+    assertEquals(List.of("Season 01"), preview.getProposedDirectoryCreates());
+    assertTrue(
+        preview.getProposedFileRenames().stream()
+            .anyMatch(
+                item ->
+                    "Show.S01E01.mkv".equals(item.getSourceName())
+                        && "Season 01".equals(item.getTargetDirectory())
+                        && "Show - S01E01.mkv".equals(item.getTargetName())));
+    assertTrue(
+        preview.getProposedFileRenames().stream()
+            .anyMatch(
+                item ->
+                    "Show.S01E01-thumb.jpg".equals(item.getSourceName())
+                        && "Show - S01E01-thumb.jpg".equals(item.getTargetName())
+                        && "image".equals(item.getAssetType())));
+    assertTrue(
+        preview.getProposedFileRenames().stream()
+            .anyMatch(
+                item ->
+                    "S01-poster.jpg".equals(item.getSourceName())
+                        && "poster.jpg".equals(item.getTargetName())));
+    assertFalse(
+        preview.getProposedFileRenames().stream()
+            .anyMatch(
+                item ->
+                    "poster.jpg".equals(item.getSourceName())
+                        || "tvshow.nfo".equals(item.getSourceName())));
+  }
+
+  @Test
+  void createsSeasonThenRenamesAndMovesFlatMediaGroup() {
+    stubTvTaskWithEntries(
+        List.of(
+            entry("Show.S01E01.mkv", "/tv/Show/Show.S01E01.mkv", "file"),
+            entry("Show.S01E01-thumb.jpg", "/tv/Show/Show.S01E01-thumb.jpg", "file")));
+    when(tmdbApiService.getTvDetail(1399)).thenReturn(tvDetail());
+    OpenlistConfig config = openlistConfigService.getById(3L);
+    when(openlistApiService.getDirectoryContents(config, "/tv"))
+        .thenReturn(List.of(entry("Show", "/tv/Show", "folder")));
+
+    PreviewRequest previewRequest = new PreviewRequest();
+    previewRequest.setDirectoryPath("/tv/Show");
+    previewRequest.setTmdbId(1399);
+    service.preview(7L, previewRequest);
+
+    var executeRequest = new com.hienao.openlist2strm.dto.task.ManualScrapingDtos.ExecuteRequest();
+    executeRequest.setDirectoryPath("/tv/Show");
+    executeRequest.setMediaType("tv");
+    executeRequest.setTmdbId(1399);
+    executeRequest.setRenameMedia(true);
+    service.execute(7L, executeRequest);
+
+    String finalRoot = "/tv/Show (2011) {tmdbid-1399}";
+    InOrder order = inOrder(openlistApiService);
+    order.verify(openlistApiService).renameEntry(config, "/tv/Show", "Show (2011) {tmdbid-1399}");
+    order.verify(openlistApiService).createDirectory(config, finalRoot + "/Season 01");
+    order
+        .verify(openlistApiService)
+        .moveEntries(config, finalRoot, finalRoot + "/Season 01", List.of("Show.S01E01.mkv"));
+    order
+        .verify(openlistApiService)
+        .renameEntry(config, finalRoot + "/Season 01/Show.S01E01.mkv", "Show - S01E01.mkv");
+    order
+        .verify(openlistApiService)
+        .moveEntries(config, finalRoot, finalRoot + "/Season 01", List.of("Show.S01E01-thumb.jpg"));
+    order
+        .verify(openlistApiService)
+        .renameEntry(
+            config, finalRoot + "/Season 01/Show.S01E01-thumb.jpg", "Show - S01E01-thumb.jpg");
+  }
+
+  @Test
   void previewsContainedSeasonMarkerAndReportsAmbiguousDirectoryWhenEnabled() {
     stubTvTaskWithEntries(
         List.of(

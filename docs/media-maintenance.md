@@ -154,6 +154,18 @@ raw.S01E01.mkv               → Show - S01E01.mkv
 
 同一目录包含多种相同季号时，按「第 x 季 → Season x → Sxx → 特别篇」确定匹配来源。
 
+如果电视剧根目录中直接平铺了剧集文件，开启重命名后会根据文件名中的明确季集标记自动创建季目录，并将同集的视频、字幕、图片和 NFO 作为一个媒体组整体移动：
+
+```text
+Show.S01E01.mkv          → Season 01/Show - S01E01.mkv
+Show.S01E01.zh-CN.ass    → Season 01/Show - S01E01.zh-CN.ass
+Show.S01E01-thumb.jpg    → Season 01/Show - S01E01-thumb.jpg
+Show.S01E01.nfo          → Season 01/Show - S01E01.nfo
+S01-poster.jpg           → Season 01/poster.jpg
+```
+
+`tvshow.nfo`、`poster.jpg`、`fanart.jpg`、`banner.jpg`、`clearlogo.png` 等剧集共用文件保留在剧集根目录。无法唯一关联到某集、或不能明确识别季号的文件不会移动。
+
 ### 重命名安全保护
 
 以下情况不会自动执行：
@@ -161,6 +173,7 @@ raw.S01E01.mkv               → Show - S01E01.mkv
 - 同一目录包含不同季号，例如 `S03 第四季`
 - 多个源季目录将变成同一个目标目录
 - 目标媒体目录、季目录或媒体文件已经存在
+- 平铺文件整理后的完整目标路径发生冲突
 - 当前选择的是任务根目录
 
 `四季酒店` 没有明确的“第 x 季”标记，不会被误识别；`S04E01` 是剧集标记，也不会单独作为季目录匹配。
