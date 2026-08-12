@@ -12,6 +12,7 @@ import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hienao.openlist2strm.entity.OpenlistConfig;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -89,6 +90,47 @@ class OpenlistApiServiceRateLimitTest {
     assertTrue(entityCaptor.getValue().getBody().contains("\"overwrite\":false"));
     assertTrue(entityCaptor.getValue().getBody().contains("\"path\":\"/movies/旧名称\""));
     verify(rateLimiter).acquire(config, "/api/fs/rename");
+  }
+
+  @Test
+  void createsDirectoryThroughOfficialMutationEndpoint() {
+    when(restTemplate.exchange(
+            anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(String.class)))
+        .thenReturn(ResponseEntity.ok("{\"code\":200,\"message\":\"success\",\"data\":null}"));
+
+    service.createDirectory(config, "/tv/Show/Season 01");
+
+    ArgumentCaptor<HttpEntity<String>> entityCaptor = ArgumentCaptor.forClass(HttpEntity.class);
+    verify(restTemplate)
+        .exchange(
+            eq("https://openlist.example.com/api/fs/mkdir"),
+            eq(HttpMethod.POST),
+            entityCaptor.capture(),
+            eq(String.class));
+    assertTrue(entityCaptor.getValue().getBody().contains("\"path\":\"/tv/Show/Season 01\""));
+    verify(rateLimiter).acquire(config, "/api/fs/mkdir");
+  }
+
+  @Test
+  void movesNamedEntriesWithoutOverwrite() {
+    when(restTemplate.exchange(
+            anyString(), eq(HttpMethod.POST), any(HttpEntity.class), eq(String.class)))
+        .thenReturn(ResponseEntity.ok("{\"code\":200,\"message\":\"success\",\"data\":null}"));
+
+    service.moveEntries(config, "/tv/Show", "/tv/Show/Season 01", List.of("Show - S01E01.mkv"));
+
+    ArgumentCaptor<HttpEntity<String>> entityCaptor = ArgumentCaptor.forClass(HttpEntity.class);
+    verify(restTemplate)
+        .exchange(
+            eq("https://openlist.example.com/api/fs/move"),
+            eq(HttpMethod.POST),
+            entityCaptor.capture(),
+            eq(String.class));
+    String body = entityCaptor.getValue().getBody();
+    assertTrue(body.contains("\"src_dir\":\"/tv/Show\""));
+    assertTrue(body.contains("\"dst_dir\":\"/tv/Show/Season 01\""));
+    assertTrue(body.contains("\"names\":[\"Show - S01E01.mkv\"]"));
+    verify(rateLimiter).acquire(config, "/api/fs/move");
   }
 
   @Test
