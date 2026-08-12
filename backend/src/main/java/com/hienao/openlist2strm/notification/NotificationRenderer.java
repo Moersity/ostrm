@@ -250,7 +250,7 @@ public class NotificationRenderer {
     }
     return switch (stage.toUpperCase()) {
       case "PREPARING", "DISCOVERY" -> "读取和识别媒体";
-      case "RENAMING", "AUTO_RENAMING" -> "重命名媒体";
+      case "RENAMING" -> "重命名媒体";
       case "GENERATING", "PROCESSING" -> "生成 STRM 和元数据";
       case "UPLOADING" -> "上传元数据";
       case "CLEANUP" -> "清理失效 STRM";

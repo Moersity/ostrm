@@ -22,7 +22,6 @@ import com.hienao.openlist2strm.entity.MediaLibraryType;
 import com.hienao.openlist2strm.entity.OpenlistConfig;
 import com.hienao.openlist2strm.entity.TaskConfig;
 import com.hienao.openlist2strm.exception.BusinessException;
-import com.hienao.openlist2strm.exception.RenameOperationException;
 import com.hienao.openlist2strm.handler.FileProcessorChain;
 import com.hienao.openlist2strm.handler.ProcessingResult;
 import com.hienao.openlist2strm.handler.context.FileProcessingContext;
@@ -66,7 +65,6 @@ public class TaskExecutionService {
   private final MediaScrapingService mediaScrapingService;
   private final SystemConfigService systemConfigService;
   private final TaskManifestService taskManifestService;
-  private final ManualScrapingService manualScrapingService;
   private final NotificationService notificationService;
   private final MediaServerApiService mediaServerApiService;
   private final FileProcessorChain fileProcessorChain;
@@ -278,9 +276,6 @@ public class TaskExecutionService {
       TaskConfig taskConfig, OpenlistConfig openlistConfig, boolean isIncrement) {
 
     List<NotificationIssue> notificationIssues = new ArrayList<>();
-    int renamedDirectoryCount = 0;
-    int renamedFileCount = 0;
-
     // 1. 先获取目录文件列表（在清空目录之前验证 OpenList API 可用性）
     List<OpenlistApiService.OpenlistFile> allFiles;
     try {
@@ -298,60 +293,6 @@ public class TaskExecutionService {
 
     // 2. 验证文件列表有效性（空列表也继续执行，可能该路径下确实没有文件）
     log.info("成功获取 OpenList 文件列表，共 {} 个文件/目录", allFiles.size());
-
-    // 普通任务的自动重命名必须先于 STRM 生成；完成后重新读取清单，确保 URL 和相对路径都是最新值。
-    if (shouldAutoRename(taskConfig)) {
-      List<String> mediaDirectories = autoRenameDirectories(taskConfig, allFiles);
-      int skippedDirectories = 0;
-      for (String mediaDirectory : mediaDirectories) {
-        try {
-          ManualScrapingService.AutoRenameResult result =
-              manualScrapingService.autoRenameForTaskExecution(taskConfig.getId(), mediaDirectory);
-          renamedDirectoryCount += result.renamedDirectoryCount();
-          renamedFileCount += result.renamedFileCount();
-          if (result.issue() != null) {
-            notificationIssues.add(result.issue());
-          }
-          if (!result.matched()) {
-            skippedDirectories++;
-            log.warn("自动重命名跳过目录: {}, 原因: {}", mediaDirectory, result.message());
-          }
-        } catch (RenameOperationException e) {
-          skippedDirectories++;
-          notificationIssues.add(e.getIssue());
-          log.warn("自动重命名目录失败，保留原名称继续执行: {}, 错误: {}", mediaDirectory, e.getMessage());
-        } catch (Exception e) {
-          skippedDirectories++;
-          notificationIssues.add(
-              NotificationIssue.builder()
-                  .category(NotificationIssue.Category.PROCESSING_FAILED)
-                  .scope("自动重命名")
-                  .sourcePath(mediaDirectory)
-                  .reason(rootMessage(e))
-                  .build());
-          log.warn("自动重命名目录失败，保留原名称继续执行: {}, 错误: {}", mediaDirectory, e.getMessage());
-        }
-      }
-      if (!mediaDirectories.isEmpty()) {
-        log.info(
-            "自动重命名阶段完成: 媒体目录 {}, 重命名目录 {}, 重命名文件 {}, 跳过 {}",
-            mediaDirectories.size(),
-            renamedDirectoryCount,
-            renamedFileCount,
-            skippedDirectories);
-        try {
-          allFiles =
-              openlistApiService.getAllFilesConcurrently(
-                  openlistConfig,
-                  taskConfig.getPath(),
-                  false,
-                  directoryReadConcurrency(openlistConfig));
-        } catch (Exception e) {
-          throw new TaskStageException(
-              "AUTO_RENAMING", "自动重命名后重新读取 OpenList 文件列表失败: " + e.getMessage(), e);
-        }
-      }
-    }
 
     // 3. 文件列表获取成功后，全量模式下再清空 STRM 目录
     if (!isIncrement) {
@@ -539,8 +480,6 @@ public class TaskExecutionService {
         .incrementalSkipped(Math.max(0, allVideoFiles.size() - videoFiles.size()))
         .structureSkipped(structureFilter.skippedVideoPaths().size())
         .cleanedStrm(cleanedCount)
-        .renamedDirectories(renamedDirectoryCount)
-        .renamedFiles(renamedFileCount)
         .issues(notificationIssues)
         .build();
   }
@@ -664,39 +603,6 @@ public class TaskExecutionService {
     return qps != null && qps > 0 ? Math.min(4, qps) : 4;
   }
 
-  private boolean shouldAutoRename(TaskConfig taskConfig) {
-    return Boolean.TRUE.equals(taskConfig.getAutoRenameMedia())
-        && Boolean.TRUE.equals(taskConfig.getNeedScrap())
-        && MediaLibraryType.from(taskConfig.getLibraryType()) != MediaLibraryType.AUTO;
-  }
-
-  List<String> autoRenameDirectories(
-      TaskConfig taskConfig, List<OpenlistApiService.OpenlistFile> files) {
-    MediaLibraryType libraryType = MediaLibraryType.from(taskConfig.getLibraryType());
-    String normalizedRoot = TaskDirectoryStructureValidator.normalizePath(taskConfig.getPath());
-    java.util.Set<String> directories = new java.util.TreeSet<>();
-    for (OpenlistApiService.OpenlistFile file : files) {
-      if (!"file".equals(file.getType()) || !strmFileService.isVideoFile(file.getName())) {
-        continue;
-      }
-      String relativePath =
-          TaskDirectoryStructureValidator.calculateRelativePath(
-              taskConfig.getPath(), file.getPath());
-      if (TaskDirectoryStructureValidator.validate(relativePath, libraryType).isPresent()) {
-        continue;
-      }
-      List<String> segments = TaskDirectoryStructureValidator.splitPath(relativePath);
-      if (segments.size() < 2) {
-        continue;
-      }
-      directories.add(
-          "/".equals(normalizedRoot)
-              ? normalizedRoot + segments.get(0)
-              : normalizedRoot + "/" + segments.get(0));
-    }
-    return List.copyOf(directories);
-  }
-
   private boolean strmFileExists(
       TaskConfig taskConfig, OpenlistApiService.OpenlistFile sourceFile) {
     String relativePath =
@@ -719,7 +625,6 @@ public class TaskExecutionService {
             taskConfig.getNeedScrap(),
             taskConfig.getLibraryType(),
             taskConfig.getSkipInvalidStructure(),
-            taskConfig.getAutoRenameMedia(),
             openlistConfig.getStrmBaseUrl(),
             openlistConfig.getEnableUrlEncoding(),
             systemConfig));

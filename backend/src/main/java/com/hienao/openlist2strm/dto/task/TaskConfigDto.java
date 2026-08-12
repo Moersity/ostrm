@@ -47,8 +47,6 @@ public class TaskConfigDto {
   @Size(max = 500, message = "重命名正则表达式长度不能超过500个字符") private String renameRegex;
 
   /** 普通任务执行时是否根据刮削结果自动重命名 OpenList 媒体 */
-  private Boolean autoRenameMedia;
-
   /** 任务完成后需要通知刷新的媒体服务器配置ID */
   private Long mediaServerConfigId;
 

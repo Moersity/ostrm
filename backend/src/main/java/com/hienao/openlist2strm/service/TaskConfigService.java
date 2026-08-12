@@ -176,9 +176,6 @@ public class TaskConfigService {
     if (taskConfig.getNeedScrap() == null) {
       taskConfig.setNeedScrap(existingConfig.getNeedScrap());
     }
-    if (taskConfig.getAutoRenameMedia() == null) {
-      taskConfig.setAutoRenameMedia(existingConfig.getAutoRenameMedia());
-    }
     if (taskConfig.getMediaRefreshScope() == null) {
       taskConfig.setMediaRefreshScope(existingConfig.getMediaRefreshScope());
       taskConfig.setMediaServerConfigId(existingConfig.getMediaServerConfigId());
@@ -407,10 +404,6 @@ public class TaskConfigService {
     if (taskConfig.getRenameRegex() == null) {
       taskConfig.setRenameRegex("");
     }
-    if (taskConfig.getAutoRenameMedia() == null) {
-      taskConfig.setAutoRenameMedia(false);
-    }
-    normalizeAutoRename(taskConfig);
     if (taskConfig.getMediaRefreshScope() == null) {
       taskConfig.setMediaRefreshScope(MediaRefreshScope.NONE.name());
     }
@@ -439,16 +432,8 @@ public class TaskConfigService {
       if (libraryType == MediaLibraryType.AUTO) {
         taskConfig.setSkipInvalidStructure(false);
       }
-      normalizeAutoRename(taskConfig);
     } catch (IllegalArgumentException e) {
       throw new BusinessException(e.getMessage());
-    }
-  }
-
-  private void normalizeAutoRename(TaskConfig taskConfig) {
-    if (!Boolean.TRUE.equals(taskConfig.getNeedScrap())
-        || MediaLibraryType.from(taskConfig.getLibraryType()) == MediaLibraryType.AUTO) {
-      taskConfig.setAutoRenameMedia(false);
     }
   }
 

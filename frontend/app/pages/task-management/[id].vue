@@ -164,10 +164,6 @@
                 需要刮削
               </label>
               <label class="flex items-center text-sm text-white/60">
-                <input type="checkbox" :checked="task.autoRenameMedia" disabled class="mr-2 h-4 w-4 rounded border-white/20 bg-white/5 text-blue-500">
-                自动重命名媒体
-              </label>
-              <label class="flex items-center text-sm text-white/60">
                 <input type="checkbox" :checked="task.isIncrement" disabled class="mr-2 h-4 w-4 rounded border-white/20 bg-white/5 text-blue-500">
                 增量更新
               </label>
@@ -361,24 +357,6 @@
                   <span class="ml-2 text-sm text-white/70">
                     需要刮削
                     <span class="block text-xs text-white/40 mt-0.5">启用TMDB刮削功能，生成NFO和封面</span>
-                  </span>
-                </label>
-
-                <label
-                  class="flex items-start"
-                  :class="!taskForm.needScrap || taskForm.libraryType === 'auto' || !taskForm.libraryType ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'"
-                >
-                  <input
-                    v-model="taskForm.autoRenameMedia"
-                    type="checkbox"
-                    :disabled="!taskForm.needScrap || taskForm.libraryType === 'auto' || !taskForm.libraryType"
-                    class="mt-1 h-4 w-4 rounded border-white/20 bg-white/5 text-blue-500"
-                  >
-                  <span class="ml-2 text-sm text-white/70">
-                    普通任务自动重命名媒体
-                    <span class="block text-xs text-white/40 mt-0.5">
-                      执行任务时根据 TMDB 结果重命名 OpenList 媒体目录和文件，默认关闭；需要 OpenList 写入权限
-                    </span>
                   </span>
                 </label>
 
@@ -675,7 +653,6 @@ const taskForm = ref({
   strmPath: '/app/backend/strm',
   cron: '',
   needScrap: false,
-  autoRenameMedia: false,
   skipInvalidStructure: false,
   renameRegex: '',
   mediaServerConfigId: null,
@@ -693,15 +670,6 @@ const libraryConfirmedStale = computed(() =>
   libraryLoadState.value === 'success' &&
   Boolean(taskForm.value.mediaLibraryId) &&
   !mediaLibraries.value.some(library => library.id === taskForm.value.mediaLibraryId)
-)
-
-watch(
-  [() => taskForm.value.needScrap, () => taskForm.value.libraryType],
-  ([needScrap, libraryType]) => {
-    if (!needScrap || !libraryType || libraryType === 'auto') {
-      taskForm.value.autoRenameMedia = false
-    }
-  }
 )
 
 const getConfigInfo = async () => {
@@ -790,7 +758,7 @@ const onMediaLibraryChange = () => {
 const resetTaskForm = () => {
   taskForm.value = {
     taskName: '', path: '', strmPath: '/app/backend/strm', cron: '',
-    libraryType: '', needScrap: false, autoRenameMedia: false, skipInvalidStructure: false,
+    libraryType: '', needScrap: false, skipInvalidStructure: false,
     renameRegex: '', mediaServerConfigId: null, mediaRefreshScope: 'NONE', mediaLibraryId: '',
     mediaLibraryName: '', isIncrement: true, isActive: true
   }
@@ -803,7 +771,6 @@ const editTask = (task) => {
   taskForm.value = {
     taskName: task.taskName, path: task.path, strmPath: task.strmPath,
     libraryType: task.libraryType || 'auto', cron: task.cron || '', needScrap: task.needScrap || false,
-    autoRenameMedia: task.autoRenameMedia || false,
     skipInvalidStructure: task.libraryType && task.libraryType !== 'auto' ? task.skipInvalidStructure || false : false,
     renameRegex: task.renameRegex || '', mediaServerConfigId: task.mediaServerConfigId || null,
     mediaRefreshScope: task.mediaRefreshScope || 'NONE', mediaLibraryId: task.mediaLibraryId || '',
@@ -845,9 +812,6 @@ const submitTask = async () => {
     const fullStrmPath = '/app/backend/strm/' + (strmSubPath.value || '')
     const taskData = {
       ...taskForm.value,
-      autoRenameMedia: taskForm.value.needScrap && taskForm.value.libraryType !== 'auto'
-        ? taskForm.value.autoRenameMedia
-        : false,
       skipInvalidStructure: taskForm.value.libraryType === 'auto' ? false : taskForm.value.skipInvalidStructure,
       strmPath: fullStrmPath,
       openlistConfigId: parseInt(configId)
