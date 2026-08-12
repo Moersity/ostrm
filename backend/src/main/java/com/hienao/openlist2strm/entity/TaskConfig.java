@@ -41,8 +41,6 @@ public class TaskConfig {
   private String renameRegex;
 
   /** 普通任务执行时是否根据刮削结果自动重命名 OpenList 媒体 */
-  private Boolean autoRenameMedia;
-
   /** 任务完成后需要通知刷新的媒体服务器配置ID */
   private Long mediaServerConfigId;
 
