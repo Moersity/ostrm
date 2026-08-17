@@ -245,7 +245,9 @@
                 <span class="mt-1 block text-xs leading-5 text-amber-200/65">
                   {{ preview.mediaType === 'tv'
                     ? '确认后会标准化季目录；平铺剧集会创建季目录，并整体移动视频、字幕、图片和 NFO。'
-                    : '确认后会依次重命名媒体目录和媒体文件。' }}
+                    : preview.organizeFlatMovie
+                      ? '确认后会创建标准电影目录，并整体移动视频及同名字幕、图片和 NFO。'
+                      : '确认后会依次重命名媒体目录和媒体文件。' }}
                   该操作会直接修改 OpenList 源目录。
                 </span>
               </span>
@@ -523,7 +525,9 @@ const executeScraping = async () => {
   if (!preview.value || isJobActive.value) return
   const renameAction = preview.value.mediaType === 'tv'
     ? '重命名源目录、季目录和文件，并上传刮削信息'
-    : '重命名源目录和文件，并上传刮削信息'
+    : preview.value.organizeFlatMovie
+      ? '创建标准电影目录，移动并重命名媒体及伴随文件，然后上传刮削信息'
+      : '重命名源目录和文件，并上传刮削信息'
   const action = renameMedia.value ? renameAction : '上传刮削信息'
   if (!confirm(`确认${action}？`)) return
 

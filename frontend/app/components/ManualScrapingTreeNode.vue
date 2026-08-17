@@ -13,7 +13,7 @@
         @click="$emit('select', node)"
       >
         <svg
-          v-if="!loading"
+          v-if="!node.mediaFile && !loading"
           class="h-3.5 w-3.5 shrink-0 text-white/35 transition-transform"
           :class="{ 'rotate-90': expanded }"
           fill="none"
@@ -23,12 +23,15 @@
         >
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
         </svg>
-        <svg v-else class="h-3.5 w-3.5 shrink-0 animate-spin text-blue-300" fill="none" viewBox="0 0 24 24">
+        <svg v-else-if="!node.mediaFile" class="h-3.5 w-3.5 shrink-0 animate-spin text-blue-300" fill="none" viewBox="0 0 24 24">
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
           <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
         </svg>
-        <svg class="h-4 w-4 shrink-0 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg v-if="!node.mediaFile" class="h-4 w-4 shrink-0 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
+        </svg>
+        <svg v-else class="ml-3.5 h-4 w-4 shrink-0 text-violet-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
         </svg>
         <span class="truncate text-sm text-white/80">{{ node.name }}</span>
       </button>
@@ -38,7 +41,7 @@
           ? 'bg-blue-500/15 text-blue-300'
           : 'bg-white/5 text-white/30'"
       >
-        {{ node.childrenLoaded ? `${node.videoFileCount} 个本层媒体` : '未加载' }}
+        {{ node.mediaFile ? '平铺电影' : node.childrenLoaded ? `${node.videoFileCount} 个本层媒体` : '未加载' }}
       </span>
     </div>
 
@@ -81,6 +84,7 @@ const loading = computed(() => Boolean(props.node.loading))
 const selected = computed(() => props.selectedPath === props.node.path)
 
 const toggleExpanded = () => {
+  if (props.node.mediaFile) return
   expanded.value = !expanded.value
   if (expanded.value && !props.node.childrenLoaded && !props.node.loading) {
     emit('load-children', props.node)

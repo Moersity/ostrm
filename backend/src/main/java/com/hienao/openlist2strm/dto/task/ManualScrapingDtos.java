@@ -31,6 +31,7 @@ public final class ManualScrapingDtos {
   public static class DirectoryNode {
     private String name;
     private String path;
+    private boolean mediaFile;
     private int videoFileCount;
     private boolean childrenLoaded;
     @Builder.Default private List<DirectoryNode> children = new ArrayList<>();
@@ -68,6 +69,7 @@ public final class ManualScrapingDtos {
     private String posterUrl;
     private String backdropUrl;
     private int videoFileCount;
+    private boolean organizeFlatMovie;
     private String proposedDirectoryName;
     @Builder.Default private List<RenameItem> proposedDirectoryRenames = new ArrayList<>();
     @Builder.Default private List<String> proposedDirectoryCreates = new ArrayList<>();
@@ -84,7 +86,7 @@ public final class ManualScrapingDtos {
     private String sourcePath;
     private String sourceName;
 
-    /** 相对剧集根目录的目标目录；为空表示保留在原目录。 */
+    /** 相对所选媒体根目录的目标目录；为空表示保留在原目录。 */
     private String targetDirectory;
 
     private String targetName;
