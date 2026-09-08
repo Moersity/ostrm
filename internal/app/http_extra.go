@@ -107,8 +107,11 @@ func (a *App) registerManual(handle func(string, endpoint)) {
 }
 func structureResult(t Object, dir string, files []remoteFile, s Object) Object {
 	typ := str(t, "libraryType")
-	children := []Object{}
 	count := 0
+	invalidCount := 0
+	nodes := map[string]Object{}
+	root := Object{"name": path.Base(dir), "path": dir, "type": "directory", "children": []Object{}}
+	nodes[dir] = root
 	for _, f := range files {
 		if f.IsDir || !video(f.Name, s) {
 			continue
@@ -117,10 +120,30 @@ func structureResult(t Object, dir string, files []remoteFile, s Object) Object 
 		rel, _ := remoteRelative(str(t, "path"), f.Path)
 		reason := structureReason(rel, typ)
 		if reason != "" && typ != "auto" {
-			children = append(children, Object{"name": f.Name, "path": f.Path, "type": "file", "reason": reason, "children": []Object{}})
+			invalidCount++
+			relative, err := remoteRelative(dir, f.Path)
+			if err != nil {
+				continue
+			}
+			parent := root
+			prefix := dir
+			parts := strings.Split(relative, "/")
+			for _, part := range parts[:len(parts)-1] {
+				prefix = path.Join(prefix, part)
+				node := nodes[prefix]
+				if node == nil {
+					node = Object{"name": part, "path": prefix, "type": "directory", "children": []Object{}}
+					nodes[prefix] = node
+					list, _ := parent["children"].([]Object)
+					parent["children"] = append(list, node)
+				}
+				parent = node
+			}
+			list, _ := parent["children"].([]Object)
+			parent["children"] = append(list, Object{"name": f.Name, "path": f.Path, "type": "file", "reason": reason, "children": []Object{}})
 		}
 	}
-	return Object{"taskId": t["id"], "taskName": t["taskName"], "libraryType": typ, "rootPath": dir, "expectedStructure": map[string]string{"movie": "电影目录/视频文件", "tv": "剧名/Season 01/视频文件", "anime": "动画名/视频文件 或 动画名/Season 01/视频文件"}[typ], "supported": typ != "auto", "scannedEntryCount": len(files), "videoFileCount": count, "invalidFileCount": len(children), "message": "检查完成", "tree": Object{"name": path.Base(dir), "path": dir, "type": "directory", "children": children}}
+	return Object{"taskId": t["id"], "taskName": t["taskName"], "libraryType": typ, "rootPath": dir, "expectedStructure": map[string]string{"movie": "电影目录/视频文件", "tv": "剧名/Season 01/视频文件", "anime": "动画名/视频文件 或 动画名/Season 01/视频文件"}[typ], "supported": typ != "auto", "scannedEntryCount": len(files), "videoFileCount": count, "invalidFileCount": invalidCount, "message": "检查完成", "tree": root}
 }
 func (a *App) logPath(kind string) (string, error) {
 	switch kind {
@@ -155,7 +178,10 @@ func (a *App) registerLogs(mux *http.ServeMux, handle func(string, endpoint)) {
 				return Object{"size": stat.Size(), "lastModified": stat.ModTime(), "fileName": stat.Name()}, nil
 			}
 			cursor, _ := strconv.ParseInt(r.URL.Query().Get("cursor"), 10, 64)
-			reset := cursor < 0 || cursor > stat.Size()
+			head := make([]byte, min(int64(64), stat.Size()))
+			f.ReadAt(head, 0)
+			fileKey := hashBytes(head)
+			reset := cursor < 0 || cursor > stat.Size() || r.URL.Query().Get("fileKey") != "" && r.URL.Query().Get("fileKey") != fileKey
 			if reset {
 				cursor = 0
 			}
@@ -184,7 +210,7 @@ func (a *App) registerLogs(mux *http.ServeMux, handle func(string, endpoint)) {
 				}
 				return lines, nil
 			}
-			return Object{"lines": lines, "cursor": cursor + int64(n), "fileKey": fmt.Sprint(stat.Name()), "reset": reset, "hasMore": cursor+int64(n) < stat.Size()}, nil
+			return Object{"lines": lines, "cursor": cursor + int64(n), "fileKey": fileKey, "reset": reset, "hasMore": cursor+int64(n) < stat.Size()}, nil
 		})
 	}
 	handle("POST /api/logs/frontend", func(r *http.Request) (any, error) {

@@ -80,7 +80,11 @@ func TestManualRenameAmbiguousResponseReconciles(t *testing.T) {
 	c, _ := a.Store.Save("openlist", 0, Object{"baseUrl": server.URL, "token": "test"})
 	task, _ := a.Store.Save("tasks", 0, Object{"path": "/media", "taskName": "test", "libraryType": "movie", "openlistConfigId": c["id"]})
 	id := num(task, "id")
-	job, e := a.submitManual(id, Object{"directoryPath": "/media/Old (2020)", "tmdbId": 1, "renameMedia": true})
+	preview, e := a.preview(context.Background(), task, c, s, Object{"directoryPath": "/media/Old (2020)", "title": "Movie", "year": "2020", "tmdbId": 1})
+	if e != nil {
+		t.Fatal(e)
+	}
+	job, e := a.submitManual(id, Object{"directoryPath": "/media/Old (2020)", "tmdbId": 1, "renameMedia": true, "planHash": preview["planHash"]})
 	if e != nil {
 		t.Fatal(e)
 	}

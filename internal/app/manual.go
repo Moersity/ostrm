@@ -54,7 +54,12 @@ func (a *App) preview(ctx context.Context, t, c, s, req Object) (Object, error) 
 		if !video(path.Base(dir), s) {
 			return nil, errors.New("请选择媒体目录或视频文件")
 		}
-		files = []remoteFile{{Name: path.Base(dir), Path: dir}}
+		var selected remoteFile
+		raw, _ := json.Marshal(m)
+		_ = json.Unmarshal(raw, &selected)
+		selected.Name = path.Base(dir)
+		selected.Path = dir
+		files = []remoteFile{selected}
 		flat = true
 		siblings, se := a.list(ctx, c, path.Dir(dir))
 		if se != nil {
@@ -139,7 +144,7 @@ func (a *App) preview(ctx context.Context, t, c, s, req Object) (Object, error) 
 			p[field] = strings.TrimRight(str(obj(s, "tmdb"), "imageBaseUrl"), "/") + "/t/p/w500" + str(m, image)
 		}
 	}
-	raw, _ := json.Marshal(p)
+	raw, _ := json.Marshal(Object{"directoryPath": dir, "sourceFingerprint": p["sourceFingerprint"], "directoryName": directoryName, "renames": renames, "seasonRenames": seasonRenames, "metadata": m, "settings": s, "openlist": c})
 	p["planHash"] = hashBytes(raw)
 	_, e = a.Store.Save("preview", num(t, "id"), p)
 	return p, e
@@ -255,7 +260,37 @@ func (a *App) manualStep(ctx context.Context, c, r Object, key, endpoint string,
 				}
 			}
 		case "move":
-			return errors.New("移动结果未知，请核对远端目录后重新预览，禁止盲目重试")
+			src, e := a.list(ctx, c, str(payload, "src_dir"))
+			if e != nil {
+				return e
+			}
+			dst, e := a.list(ctx, c, str(payload, "dst_dir"))
+			if e != nil {
+				return e
+			}
+			srcNames, dstNames := map[string]bool{}, map[string]bool{}
+			for _, f := range src {
+				srcNames[f.Name] = true
+			}
+			for _, f := range dst {
+				dstNames[f.Name] = true
+			}
+			raw, _ := json.Marshal(payload["names"])
+			var names []string
+			_ = json.Unmarshal(raw, &names)
+			complete, untouched := true, true
+			for _, name := range names {
+				complete = complete && !srcNames[name] && dstNames[name]
+				untouched = untouched && srcNames[name] && !dstNames[name]
+			}
+			if complete {
+				steps[key] = Object{"state": "done", "endpoint": endpoint, "payload": payload}
+				_, e = a.Store.Save("manual", num(r, "id"), r)
+				return e
+			}
+			if !untouched {
+				return errors.New("移动结果部分完成或存在冲突，请人工核对远端目录")
+			}
 		}
 	}
 	steps[key] = Object{"state": "intent", "endpoint": endpoint, "payload": payload}

@@ -163,6 +163,7 @@ func (a *App) maintenance() {
 		case <-a.ctx.Done():
 			return
 		case <-ticker.C:
+			a.expireLogs()
 			a.Store.DB.Exec("DELETE FROM sessions WHERE expires < ?", time.Now().Unix())
 			records, e := a.Store.List("trash")
 			if e != nil {

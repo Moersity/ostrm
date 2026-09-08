@@ -370,7 +370,7 @@
                   <span class="ml-2 text-sm text-white/70">
                     跳过目录结构不符合的视频
                     <span class="block text-xs text-white/40 mt-0.5">
-                      执行时不生成 STRM、也不刮削；增量任务会清理此前生成的异常文件
+                      执行时跳过异常目录；已有输出保留，避免过滤设置变化造成误删
                     </span>
                   </span>
                 </label>

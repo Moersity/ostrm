@@ -1,0 +1,502 @@
+{
+  "baseline": "9f3ae5cee9bcb4c8bf09f2b8fb1495340f8f4ae7",
+  "capture": "Java dev runtime /v3/api-docs",
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/api/task-config/{id}",
+      "status": "implemented",
+      "feature": "F03–F05",
+      "evidence": "TestFullIncrementalAndFailureSafety, TestOutputJournalAndUserEdits",
+      "differentialStatus": "schema captured from Java; exhaustive per-route response differential not completed"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/task-config/{id}",
+      "status": "implemented",
+      "feature": "F03–F05",
+      "evidence": "TestFullIncrementalAndFailureSafety, TestOutputJournalAndUserEdits",
+      "differentialStatus": "schema captured from Java; exhaustive per-route response differential not completed"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/task-config/{id}",
+      "status": "implemented",
+      "feature": "F03–F05",
+      "evidence": "TestFullIncrementalAndFailureSafety, TestOutputJournalAndUserEdits",
+      "differentialStatus": "schema captured from Java; exhaustive per-route response differential not completed"
+    },
+    {
+      "method": "GET",
+      "path": "/api/openlist-config/{id}",
+      "status": "implemented",
+      "feature": "F02",
+      "evidence": "TestFullIncrementalAndFailureSafety",
+      "differentialStatus": "schema captured from Java; exhaustive per-route response differential not completed"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/openlist-config/{id}",
+      "status": "implemented",
+      "feature": "F02",
+      "evidence": "TestFullIncrementalAndFailureSafety",
+      "differentialStatus": "schema captured from Java; exhaustive per-route response differential not completed"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/openlist-config/{id}",
+      "status": "implemented",
+      "feature": "F02",
+      "evidence": "TestFullIncrementalAndFailureSafety",
+      "differentialStatus": "schema captured from Java; exhaustive per-route response differential not completed"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/media-servers/{id}",
+      "status": "implemented",
+      "feature": "F10",
+      "evidence": "TestMediaRefreshNotificationAndAI",
+      "differentialStatus": "schema captured from Java; exhaustive per-route response differential not completed"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/media-servers/{id}",
+      "status": "implemented",
+      "feature": "F10",
+      "evidence": "TestMediaRefreshNotificationAndAI",
+      "differentialStatus": "schema captured from Java; exhaustive per-route response differential not completed"
+    },
+    {
+      "method": "GET",
+      "path": "/api/task-config",
+      "status": "implemented",
+      "feature": "F03–F05",
+      "evidence": "TestFullIncrementalAndFailureSafety, TestOutputJournalAndUserEdits",
+      "differentialStatus": "schema captured from Java; exhaustive per-route response differential not completed"
+    },
+    {
+      "method": "POST",
+      "path": "/api/task-config",
+      "status": "implemented",
+      "feature": "F03–F05",
+      "evidence": "TestFullIncrementalAndFailureSafety, TestOutputJournalAndUserEdits",
+      "differentialStatus": "schema captured from Java; exhaustive per-route response differential not completed"
+    },
+    {
+      "method": "POST",
+      "path": "/api/task-config/{id}/submit",
+      "status": "implemented",
+      "feature": "F03–F05",
+      "evidence": "TestFullIncrementalAndFailureSafety, TestOutputJournalAndUserEdits",
+      "differentialStatus": "schema captured from Java; exhaustive per-route response differential not completed"
+    },
+    {
+      "method": "POST",
+      "path": "/api/task-config/{id}/structure-check",
+      "status": "implemented",
+      "feature": "F07",
+      "evidence": "TestSeasonCompatibility",
+      "differentialStatus": "schema captured from Java; exhaustive per-route response differential not completed"
+    },
+    {
+      "method": "POST",
+      "path": "/api/task-config/{id}/structure-check/directory",
+      "status": "implemented",
+      "feature": "F07",
+      "evidence": "TestSeasonCompatibility",
+      "differentialStatus": "schema captured from Java; exhaustive per-route response differential not completed"
+    },
+    {
+      "method": "POST",
+      "path": "/api/task-config/{id}/manual-scraping/preview",
+      "status": "implemented",
+      "feature": "F08",
+      "evidence": "TestManualRenameAmbiguousResponseReconciles",
+      "differentialStatus": "schema captured from Java; exhaustive per-route response differential not completed"
+    },
+    {
+      "method": "POST",
+      "path": "/api/task-config/{id}/manual-scraping/jobs/{jobId}/retry",
+      "status": "implemented",
+      "feature": "F08",
+      "evidence": "TestManualRenameAmbiguousResponseReconciles",
+      "differentialStatus": "schema captured from Java; exhaustive per-route response differential not completed"
+    },
+    {
+      "method": "POST",
+      "path": "/api/task-config/{id}/manual-scraping/execute",
+      "status": "implemented",
+      "feature": "F08",
+      "evidence": "TestManualRenameAmbiguousResponseReconciles",
+      "differentialStatus": "schema captured from Java; exhaustive per-route response differential not completed"
+    },
+    {
+      "method": "POST",
+      "path": "/api/system/test-notification",
+      "status": "implemented",
+      "feature": "F11–F12",
+      "evidence": "TestTMDBAndConfigurablePatterns, TestMediaRefreshNotificationAndAI",
+      "differentialStatus": "schema captured from Java; exhaustive per-route response differential not completed"
+    },
+    {
+      "method": "POST",
+      "path": "/api/system/test-ai-config",
+      "status": "implemented",
+      "feature": "F11–F12",
+      "evidence": "TestTMDBAndConfigurablePatterns, TestMediaRefreshNotificationAndAI",
+      "differentialStatus": "schema captured from Java; exhaustive per-route response differential not completed"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/config",
+      "status": "implemented",
+      "feature": "F11–F12",
+      "evidence": "TestTMDBAndConfigurablePatterns, TestMediaRefreshNotificationAndAI",
+      "differentialStatus": "schema captured from Java; exhaustive per-route response differential not completed"
+    },
+    {
+      "method": "POST",
+      "path": "/api/system/config",
+      "status": "implemented",
+      "feature": "F11–F12",
+      "evidence": "TestTMDBAndConfigurablePatterns, TestMediaRefreshNotificationAndAI",
+      "differentialStatus": "schema captured from Java; exhaustive per-route response differential not completed"
+    },
+    {
+      "method": "GET",
+      "path": "/api/openlist-config",
+      "status": "implemented",
+      "feature": "F02",
+      "evidence": "TestFullIncrementalAndFailureSafety",
+      "differentialStatus": "schema captured from Java; exhaustive per-route response differential not completed"
+    },
+    {
+      "method": "POST",
+      "path": "/api/openlist-config",
+      "status": "implemented",
+      "feature": "F02",
+      "evidence": "TestFullIncrementalAndFailureSafety",
+      "differentialStatus": "schema captured from Java; exhaustive per-route response differential not completed"
+    },
+    {
+      "method": "POST",
+      "path": "/api/openlist-config/validate",
+      "status": "implemented",
+      "feature": "F02",
+      "evidence": "TestFullIncrementalAndFailureSafety",
+      "differentialStatus": "schema captured from Java; exhaustive per-route response differential not completed"
+    },
+    {
+      "method": "POST",
+      "path": "/api/openlist-config/validate-path",
+      "status": "implemented",
+      "feature": "F02",
+      "evidence": "TestFullIncrementalAndFailureSafety",
+      "differentialStatus": "schema captured from Java; exhaustive per-route response differential not completed"
+    },
+    {
+      "method": "GET",
+      "path": "/api/media-servers",
+      "status": "implemented",
+      "feature": "F10",
+      "evidence": "TestMediaRefreshNotificationAndAI",
+      "differentialStatus": "schema captured from Java; exhaustive per-route response differential not completed"
+    },
+    {
+      "method": "POST",
+      "path": "/api/media-servers",
+      "status": "implemented",
+      "feature": "F10",
+      "evidence": "TestMediaRefreshNotificationAndAI",
+      "differentialStatus": "schema captured from Java; exhaustive per-route response differential not completed"
+    },
+    {
+      "method": "POST",
+      "path": "/api/media-servers/{id}/test",
+      "status": "implemented",
+      "feature": "F10",
+      "evidence": "TestMediaRefreshNotificationAndAI",
+      "differentialStatus": "schema captured from Java; exhaustive per-route response differential not completed"
+    },
+    {
+      "method": "POST",
+      "path": "/api/media-servers/{id}/refresh",
+      "status": "implemented",
+      "feature": "F10",
+      "evidence": "TestMediaRefreshNotificationAndAI",
+      "differentialStatus": "schema captured from Java; exhaustive per-route response differential not completed"
+    },
+    {
+      "method": "POST",
+      "path": "/api/media-servers/test",
+      "status": "implemented",
+      "feature": "F10",
+      "evidence": "TestMediaRefreshNotificationAndAI",
+      "differentialStatus": "schema captured from Java; exhaustive per-route response differential not completed"
+    },
+    {
+      "method": "POST",
+      "path": "/api/logs/frontend",
+      "status": "implemented",
+      "feature": "F12",
+      "evidence": "browser smoke + route registration",
+      "differentialStatus": "schema captured from Java; exhaustive per-route response differential not completed"
+    },
+    {
+      "method": "POST",
+      "path": "/api/data-report/events",
+      "status": "implemented",
+      "feature": "F12",
+      "evidence": "route registration",
+      "differentialStatus": "schema captured from Java; exhaustive per-route response differential not completed"
+    },
+    {
+      "method": "POST",
+      "path": "/api/data-report/event",
+      "status": "implemented",
+      "feature": "F12",
+      "evidence": "route registration",
+      "differentialStatus": "schema captured from Java; exhaustive per-route response differential not completed"
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/sign-up",
+      "status": "implemented",
+      "feature": "F01",
+      "evidence": "TestAuthLifecycle, TestRegistrationAndInstanceExclusion",
+      "differentialStatus": "schema captured from Java; exhaustive per-route response differential not completed"
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/sign-out",
+      "status": "implemented",
+      "feature": "F01",
+      "evidence": "TestAuthLifecycle, TestRegistrationAndInstanceExclusion",
+      "differentialStatus": "schema captured from Java; exhaustive per-route response differential not completed"
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/sign-in",
+      "status": "implemented",
+      "feature": "F01",
+      "evidence": "TestAuthLifecycle, TestRegistrationAndInstanceExclusion",
+      "differentialStatus": "schema captured from Java; exhaustive per-route response differential not completed"
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/refresh",
+      "status": "implemented",
+      "feature": "F01",
+      "evidence": "TestAuthLifecycle, TestRegistrationAndInstanceExclusion",
+      "differentialStatus": "schema captured from Java; exhaustive per-route response differential not completed"
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/change-password",
+      "status": "implemented",
+      "feature": "F01",
+      "evidence": "TestAuthLifecycle, TestRegistrationAndInstanceExclusion",
+      "differentialStatus": "schema captured from Java; exhaustive per-route response differential not completed"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/task-config/{id}/status",
+      "status": "implemented",
+      "feature": "F03–F05",
+      "evidence": "TestFullIncrementalAndFailureSafety, TestOutputJournalAndUserEdits",
+      "differentialStatus": "schema captured from Java; exhaustive per-route response differential not completed"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/task-config/{id}/last-exec-time",
+      "status": "implemented",
+      "feature": "F03–F05",
+      "evidence": "TestFullIncrementalAndFailureSafety, TestOutputJournalAndUserEdits",
+      "differentialStatus": "schema captured from Java; exhaustive per-route response differential not completed"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/openlist-config/{id}/status",
+      "status": "implemented",
+      "feature": "F02",
+      "evidence": "TestFullIncrementalAndFailureSafety",
+      "differentialStatus": "schema captured from Java; exhaustive per-route response differential not completed"
+    },
+    {
+      "method": "GET",
+      "path": "/api/version/latest",
+      "status": "implemented",
+      "feature": "F12",
+      "evidence": "route registration",
+      "differentialStatus": "schema captured from Java; exhaustive per-route response differential not completed"
+    },
+    {
+      "method": "GET",
+      "path": "/api/version/check",
+      "status": "implemented",
+      "feature": "F12",
+      "evidence": "route registration",
+      "differentialStatus": "schema captured from Java; exhaustive per-route response differential not completed"
+    },
+    {
+      "method": "GET",
+      "path": "/api/task-config/{id}/structure-check/directories",
+      "status": "implemented",
+      "feature": "F07",
+      "evidence": "TestSeasonCompatibility",
+      "differentialStatus": "schema captured from Java; exhaustive per-route response differential not completed"
+    },
+    {
+      "method": "GET",
+      "path": "/api/task-config/{id}/manual-scraping/tree",
+      "status": "implemented",
+      "feature": "F08",
+      "evidence": "TestManualRenameAmbiguousResponseReconciles",
+      "differentialStatus": "schema captured from Java; exhaustive per-route response differential not completed"
+    },
+    {
+      "method": "GET",
+      "path": "/api/task-config/{id}/manual-scraping/tree/children",
+      "status": "implemented",
+      "feature": "F08",
+      "evidence": "TestManualRenameAmbiguousResponseReconciles",
+      "differentialStatus": "schema captured from Java; exhaustive per-route response differential not completed"
+    },
+    {
+      "method": "GET",
+      "path": "/api/task-config/{id}/manual-scraping/jobs/{jobId}",
+      "status": "implemented",
+      "feature": "F08",
+      "evidence": "TestManualRenameAmbiguousResponseReconciles",
+      "differentialStatus": "schema captured from Java; exhaustive per-route response differential not completed"
+    },
+    {
+      "method": "GET",
+      "path": "/api/task-config/{id}/manual-scraping/jobs/latest",
+      "status": "implemented",
+      "feature": "F08",
+      "evidence": "TestManualRenameAmbiguousResponseReconciles",
+      "differentialStatus": "schema captured from Java; exhaustive per-route response differential not completed"
+    },
+    {
+      "method": "GET",
+      "path": "/api/task-config/task-name/{taskName}",
+      "status": "implemented",
+      "feature": "F03–F05",
+      "evidence": "TestFullIncrementalAndFailureSafety, TestOutputJournalAndUserEdits",
+      "differentialStatus": "schema captured from Java; exhaustive per-route response differential not completed"
+    },
+    {
+      "method": "GET",
+      "path": "/api/task-config/scheduled",
+      "status": "implemented",
+      "feature": "F03–F05",
+      "evidence": "TestFullIncrementalAndFailureSafety, TestOutputJournalAndUserEdits",
+      "differentialStatus": "schema captured from Java; exhaustive per-route response differential not completed"
+    },
+    {
+      "method": "GET",
+      "path": "/api/task-config/path",
+      "status": "implemented",
+      "feature": "F03–F05",
+      "evidence": "TestFullIncrementalAndFailureSafety, TestOutputJournalAndUserEdits",
+      "differentialStatus": "schema captured from Java; exhaustive per-route response differential not completed"
+    },
+    {
+      "method": "GET",
+      "path": "/api/task-config/active",
+      "status": "implemented",
+      "feature": "F03–F05",
+      "evidence": "TestFullIncrementalAndFailureSafety, TestOutputJournalAndUserEdits",
+      "differentialStatus": "schema captured from Java; exhaustive per-route response differential not completed"
+    },
+    {
+      "method": "GET",
+      "path": "/api/openlist-config/username/{username}",
+      "status": "implemented",
+      "feature": "F02",
+      "evidence": "TestFullIncrementalAndFailureSafety",
+      "differentialStatus": "schema captured from Java; exhaustive per-route response differential not completed"
+    },
+    {
+      "method": "GET",
+      "path": "/api/openlist-config/active",
+      "status": "implemented",
+      "feature": "F02",
+      "evidence": "TestFullIncrementalAndFailureSafety",
+      "differentialStatus": "schema captured from Java; exhaustive per-route response differential not completed"
+    },
+    {
+      "method": "GET",
+      "path": "/api/media-servers/{id}/libraries",
+      "status": "implemented",
+      "feature": "F10",
+      "evidence": "TestMediaRefreshNotificationAndAI",
+      "differentialStatus": "schema captured from Java; exhaustive per-route response differential not completed"
+    },
+    {
+      "method": "GET",
+      "path": "/api/logs/{logType}",
+      "status": "implemented",
+      "feature": "F12",
+      "evidence": "browser smoke + route registration",
+      "differentialStatus": "schema captured from Java; exhaustive per-route response differential not completed"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/logs/{logType}",
+      "status": "implemented",
+      "feature": "F12",
+      "evidence": "browser smoke + route registration",
+      "differentialStatus": "schema captured from Java; exhaustive per-route response differential not completed"
+    },
+    {
+      "method": "GET",
+      "path": "/api/logs/{logType}/tail",
+      "status": "implemented",
+      "feature": "F12",
+      "evidence": "browser smoke + route registration",
+      "differentialStatus": "schema captured from Java; exhaustive per-route response differential not completed"
+    },
+    {
+      "method": "GET",
+      "path": "/api/logs/{logType}/stats",
+      "status": "implemented",
+      "feature": "F12",
+      "evidence": "browser smoke + route registration",
+      "differentialStatus": "schema captured from Java; exhaustive per-route response differential not completed"
+    },
+    {
+      "method": "GET",
+      "path": "/api/logs/{logType}/download",
+      "status": "implemented",
+      "feature": "F12",
+      "evidence": "browser smoke + route registration",
+      "differentialStatus": "schema captured from Java; exhaustive per-route response differential not completed"
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/validate",
+      "status": "implemented",
+      "feature": "F01",
+      "evidence": "TestAuthLifecycle, TestRegistrationAndInstanceExclusion",
+      "differentialStatus": "schema captured from Java; exhaustive per-route response differential not completed"
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/check-user",
+      "status": "implemented",
+      "feature": "F01",
+      "evidence": "TestAuthLifecycle, TestRegistrationAndInstanceExclusion",
+      "differentialStatus": "schema captured from Java; exhaustive per-route response differential not completed"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/version/cache/clear",
+      "status": "implemented",
+      "feature": "F12",
+      "evidence": "route registration",
+      "differentialStatus": "schema captured from Java; exhaustive per-route response differential not completed"
+    }
+  ]
+}

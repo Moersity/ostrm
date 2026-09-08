@@ -298,7 +298,11 @@ func (a *App) Handler() http.Handler {
 				return nil, e
 			}
 		}
-		return "配置已保存", a.Store.Set("system", s)
+		if e = a.Store.Set("system", s); e != nil {
+			return nil, e
+		}
+		a.logSettings(s)
+		return "配置已保存", nil
 	})
 	handle("POST /api/system/test-ai-config", func(r *http.Request) (any, error) {
 		m, e := readBody(r)
@@ -448,10 +452,11 @@ func (a *App) saveConfig(r *http.Request, kind string, id int64) (any, error) {
 			return nil, e
 		}
 		root = canonicalRoot(root)
-		for _, protected := range []string{a.Config.DataDir, filepath.Join(a.Config.DataDir, "logs"), filepath.Join(a.Config.DataDir, "trash")} {
+		for index, protected := range []string{a.Config.DataDir, filepath.Join(a.Config.DataDir, "logs"), filepath.Join(a.Config.DataDir, "trash")} {
 			// The default STRM subtree is inside data-dir; protect its siblings and the data root itself.
-			if protected == a.Config.DataDir {
-				if pathsOverlap(root, protected) && !strings.HasPrefix(root, protected+string(os.PathSeparator)) {
+			protected = canonicalRoot(protected)
+			if index == 0 {
+				if pathsOverlap(root, protected) && !strings.HasPrefix(strings.ToLower(root), strings.ToLower(protected)+string(os.PathSeparator)) {
 					return nil, errors.New("输出目录不能覆盖数据目录")
 				}
 			} else if pathsOverlap(root, protected) {

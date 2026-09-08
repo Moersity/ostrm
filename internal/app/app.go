@@ -7,7 +7,6 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
-	"os"
 	"path/filepath"
 	"sync"
 	"time"
@@ -36,7 +35,8 @@ type App struct {
 	ctx      context.Context
 	cancel   context.CancelFunc
 	lock     *flock.Flock
-	logFile  *os.File
+	logFile  *rotatingLog
+	logLevel slog.LevelVar
 	Log      *slog.Logger
 }
 
@@ -59,13 +59,16 @@ func New(c Config) (*App, error) {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	a := &App{Config: c, Store: s, Client: &http.Client{Timeout: 30 * time.Second, Transport: &http.Transport{Proxy: http.ProxyFromEnvironment, DialContext: (&net.Dialer{Timeout: 10 * time.Second}).DialContext, MaxIdleConns: 32, IdleConnTimeout: 60 * time.Second, ResponseHeaderTimeout: 30 * time.Second}}, clients: map[string]*http.Client{}, cache: map[string]cacheEntry{}, limits: map[string]*limiter{}, active: map[int64]context.CancelFunc{}, ctx: ctx, cancel: cancel, lock: lock}
-	f, e := os.OpenFile(filepath.Join(c.DataDir, "logs", "backend.log"), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+	f, e := openLog(filepath.Join(c.DataDir, "logs", "backend.log"))
 	if e != nil {
 		a.Close()
 		return nil, e
 	}
 	a.logFile = f
-	a.Log = slog.New(slog.NewJSONHandler(f, nil))
+	a.Log = slog.New(slog.NewJSONHandler(f, &slog.HandlerOptions{Level: &a.logLevel}))
+	if settings, err := a.settings(); err == nil {
+		a.logSettings(settings)
+	}
 	if e = a.initSecret(); e != nil {
 		a.Close()
 		return nil, e

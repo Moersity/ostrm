@@ -55,10 +55,10 @@ jobs:
           pattern: native-*
           merge-multiple: true
           path: dist
+      - run: git archive --format=tar.gz --output=dist/SOURCE.tar.gz HEAD
       - run: node build/verify-release.mjs
         env:
           OSTRM_VERSION: ${{ needs.validate.outputs.version }}
-      - run: git archive --format=tar.gz --output=dist/SOURCE.tar.gz HEAD
       - env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ needs.validate.outputs.version }}
