@@ -13,6 +13,39 @@ import (
 )
 
 func (a *App) registerManual(handle func(string, endpoint)) {
+	handle("GET /api/task-config/{id}/movie-versions/preview", func(r *http.Request) (any, error) {
+		t, c, e := a.taskConfig(idParam(r, "id"))
+		if e != nil {
+			return nil, e
+		}
+		if str(t, "libraryType") != "movie" {
+			return nil, errors.New("仅电影任务支持画质筛选")
+		}
+		s, e := a.settings()
+		if e != nil {
+			return nil, e
+		}
+		files, e := a.scan(r.Context(), c, str(t, "path"))
+		if e != nil {
+			return nil, e
+		}
+		videos := []remoteFile{}
+		for _, f := range files {
+			if f.IsDir || !video(f.Name, s) {
+				continue
+			}
+			rel, e := remoteRelative(str(t, "path"), f.Path)
+			if e != nil {
+				return nil, e
+			}
+			if boolean(t, "skipMovieExtras", true) && movieExtra(rel) {
+				continue
+			}
+			videos = append(videos, f)
+		}
+		selected, decisions := selectMovieVersions(t, videos)
+		return Object{"videoCount": len(videos), "selectedCount": len(selected), "filteredCount": len(decisions), "selections": decisions, "policy": str(t, "movieVersions")}, nil
+	})
 	for _, suffix := range []string{"tree", "tree/children"} {
 		handle("GET /api/task-config/{id}/manual-scraping/"+suffix, func(r *http.Request) (any, error) {
 			t, c, e := a.taskConfig(idParam(r, "id"))
@@ -143,7 +176,7 @@ func structureResult(t Object, dir string, files []remoteFile, s Object) Object 
 			parent["children"] = append(list, Object{"name": f.Name, "path": f.Path, "type": "file", "reason": reason, "children": []Object{}})
 		}
 	}
-	return Object{"taskId": t["id"], "taskName": t["taskName"], "libraryType": typ, "rootPath": dir, "expectedStructure": map[string]string{"movie": "电影目录/视频文件", "tv": "剧名/Season 01/视频文件", "anime": "动画名/视频文件 或 动画名/Season 01/视频文件"}[typ], "supported": typ != "auto", "scannedEntryCount": len(files), "videoFileCount": count, "invalidFileCount": invalidCount, "message": "检查完成", "tree": root}
+	return Object{"taskId": t["id"], "taskName": t["taskName"], "libraryType": typ, "rootPath": dir, "expectedStructure": map[string]string{"movie": "视频文件，或任意层级子目录/视频文件", "tv": "剧名/Season 01/视频文件", "anime": "动画名/视频文件 或 动画名/Season 01/视频文件"}[typ], "supported": typ != "auto", "scannedEntryCount": len(files), "videoFileCount": count, "invalidFileCount": invalidCount, "message": "检查完成", "tree": root}
 }
 func (a *App) logPath(kind string) (string, error) {
 	switch kind {

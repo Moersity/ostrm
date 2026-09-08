@@ -32,3 +32,7 @@ Windows 服务使用独立账户环境，请勿依赖交互用户的映射盘符
 
 GPL-3.0-or-later。基于 hienao/ostrm 的前端及业务行为重写，原版权和 LICENSE 保留。
 功能和验证状态详见 docs/rewrite/progress.md。编译成功不等于所有平台验收完成。
+
+## 电影目录与多画质片源
+
+电影支持根目录和任意层级子目录。默认标准化 STRM 名称并只选同片最佳画质，可在任务中预览保留／过滤结果或选择保留所有版本；不删除 OpenList 原视频。详见 [电影目录、识别与画质筛选](docs/movie-library.md)。

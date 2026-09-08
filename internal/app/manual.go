@@ -88,7 +88,32 @@ func (a *App) preview(ctx context.Context, t, c, s, req Object) (Object, error) 
 			}
 		}
 	}
-	m, e := a.recognize(ctx, s, dir, typ, str(req, "title"), str(req, "year"), num(req, "tmdbId"))
+	identity := dir
+	if typ == "movie" || typ == "auto" || typ == "" {
+		typ = "movie"
+		identities := map[string]movieIdentity{}
+		for _, f := range files {
+			if f.IsDir || !video(f.Name, s) {
+				continue
+			}
+			rel, _ := remoteRelative(str(t, "path"), f.Path)
+			if boolean(t, "skipMovieExtras", true) && movieExtra(rel) {
+				continue
+			}
+			info := identifyMovie(str(t, "path"), f.Path)
+			identities[movieTitleKey(movieLabel(info))] = info
+		}
+		if len(identities) > 1 {
+			return nil, errors.New("所选目录包含多部电影，请展开目录并选择一部电影的目录或视频文件")
+		}
+		if len(identities) == 0 {
+			return nil, errors.New("所选目录没有可处理的电影视频")
+		}
+		for _, info := range identities {
+			identity = movieLabel(info)
+		}
+	}
+	m, e := a.recognize(ctx, s, identity, typ, str(req, "title"), str(req, "year"), num(req, "tmdbId"))
 	if e != nil {
 		return Object{"directoryPath": dir, "matched": false, "matchMessage": e.Error(), "proposedFileRenames": []Object{}, "proposedDirectoryRenames": []Object{}, "proposedDirectoryCreates": []string{}, "generatedFiles": []string{}, "renamedGeneratedFiles": []string{}}, nil
 	}
@@ -101,8 +126,23 @@ func (a *App) preview(ctx context.Context, t, c, s, req Object) (Object, error) 
 		if f.IsDir || !video(f.Name, s) {
 			continue
 		}
+		rel, _ := remoteRelative(str(t, "path"), f.Path)
+		if str(m, "mediaType") == "movie" && boolean(t, "skipMovieExtras", true) && movieExtra(rel) {
+			continue
+		}
 		count++
 		newBase := title
+		if str(m, "mediaType") == "movie" {
+			movieTitle := str(m, "title")
+			if original := str(m, "original_title"); original != "" && movieTitleKey(original) != movieTitleKey(movieTitle) {
+				movieTitle += " " + original
+			}
+			newBase = movieLabel(movieIdentity{Title: movieTitle, Year: str(m, "year"), ID: num(m, "tmdbId")})
+			if quality := movieQualityLabel(f); quality != "" {
+				newBase += " - " + quality
+			}
+			newBase = safeName(newBase)
+		}
 		if str(m, "mediaType") == "tv" {
 			season, ep := mediaNumbersConfig(s, f.Path)
 			if ep == 0 {
@@ -148,7 +188,7 @@ func (a *App) preview(ctx context.Context, t, c, s, req Object) (Object, error) 
 	}
 	b, _ := json.Marshal(files)
 	p := Object{"directoryPath": dir, "mediaType": m["mediaType"], "matched": true, "searchTitle": req["title"], "searchYear": req["year"], "matchMessage": "匹配成功", "tmdbId": m["tmdbId"], "title": m["title"], "originalTitle": m["original_title"], "year": m["year"], "overview": m["overview"], "voteAverage": m["vote_average"], "videoFileCount": count, "organizeFlatMovie": flat, "proposedDirectoryName": directoryName, "proposedDirectoryRenames": seasonRenames, "proposedDirectoryCreates": []string{}, "proposedFileRenames": renames, "generatedFiles": generated, "renamedGeneratedFiles": generated, "sourceFingerprint": hashBytes(b), "metadata": m}
-	if flat {
+	if flat && path.Base(path.Dir(dir)) != directoryName {
 		p["proposedDirectoryCreates"] = []string{path.Join(path.Dir(dir), directoryName)}
 	}
 	for field, image := range map[string]string{"posterUrl": "poster_path", "backdropUrl": "backdrop_path"} {
@@ -402,7 +442,10 @@ func (a *App) executeManual(ctx context.Context, t, c, s, r Object) error {
 			dir = target
 			r["renamedDirectoryCount"] = 1
 		}
-		if flat {
+		if flat && path.Base(path.Dir(dir)) == str(p, "proposedDirectoryName") {
+			// Already organized: do not nest another identically named folder.
+			dir = path.Dir(dir)
+		} else if flat {
 			target := path.Join(path.Dir(dir), str(p, "proposedDirectoryName"))
 			if e := a.manualStep(ctx, c, r, "mkdir", "mkdir", Object{"path": target}); e != nil {
 				return e
@@ -430,6 +473,10 @@ func (a *App) executeManual(ctx context.Context, t, c, s, r Object) error {
 	seen := map[string]bool{}
 	for _, f := range files {
 		if f.IsDir || !video(f.Name, s) {
+			continue
+		}
+		rel, _ := remoteRelative(str(t, "path"), f.Path)
+		if str(m, "mediaType") == "movie" && boolean(t, "skipMovieExtras", true) && movieExtra(rel) {
 			continue
 		}
 		assets, e := a.metadataFiles(ctx, s, m, f.Path)
@@ -485,6 +532,16 @@ func (a *App) executeManual(ctx context.Context, t, c, s, r Object) error {
 	return nil
 }
 func (a *App) autoRename(ctx context.Context, t, c, s Object, files []remoteFile) error {
+	if str(t, "libraryType") == "movie" {
+		videos := []remoteFile{}
+		for _, f := range files {
+			rel, _ := remoteRelative(str(t, "path"), f.Path)
+			if !f.IsDir && video(f.Name, s) && (!boolean(t, "skipMovieExtras", true) || !movieExtra(rel)) {
+				videos = append(videos, f)
+			}
+		}
+		files, _ = selectMovieVersions(t, videos)
+	}
 	dirs := map[string]bool{}
 	for _, f := range files {
 		if !f.IsDir && video(f.Name, s) {
@@ -492,13 +549,24 @@ func (a *App) autoRename(ctx context.Context, t, c, s Object, files []remoteFile
 			if e != nil {
 				return e
 			}
+			if str(t, "libraryType") == "movie" {
+				if !boolean(t, "skipMovieExtras", true) || !movieExtra(rel) {
+					dirs[f.Path] = true
+				}
+				continue
+			}
 			parts := strings.Split(rel, "/")
 			if len(parts) > 1 {
 				dirs[path.Join(str(t, "path"), parts[0])] = true
 			}
 		}
 	}
+	ordered := make([]string, 0, len(dirs))
 	for dir := range dirs {
+		ordered = append(ordered, dir)
+	}
+	sort.Strings(ordered)
+	for _, dir := range ordered {
 		p, e := a.preview(ctx, t, c, s, Object{"directoryPath": dir})
 		if e != nil {
 			return e

@@ -200,7 +200,7 @@ func (a *App) executeFiles(ctx context.Context, t, c, s, r Object) error {
 		entries[f.Path] = hashBytes(b)
 		dirs[path.Dir(f.Path)] = append(dirs[path.Dir(f.Path)], f)
 	}
-	fp, _ := json.Marshal(Object{"task": Object{"path": t["path"], "strmPath": t["strmPath"], "renameRegex": t["renameRegex"], "libraryType": t["libraryType"], "needScrap": t["needScrap"], "skipInvalidStructure": t["skipInvalidStructure"]}, "openlist": c, "system": s})
+	fp, _ := json.Marshal(Object{"movieOutputVersion": 1, "task": Object{"movieVersions": t["movieVersions"], "movieNaming": t["movieNaming"], "skipMovieExtras": t["skipMovieExtras"], "path": t["path"], "strmPath": t["strmPath"], "renameRegex": t["renameRegex"], "libraryType": t["libraryType"], "needScrap": t["needScrap"], "skipInvalidStructure": t["skipInvalidStructure"]}, "openlist": c, "system": s})
 	fingerprint := hashBytes(fp)
 	changedDirs := map[string]bool{}
 	for p, h := range entries {
@@ -216,6 +216,8 @@ func (a *App) executeFiles(ctx context.Context, t, c, s, r Object) error {
 	reset := str(manifest, "fingerprint") != fingerprint || !boolean(t, "isIncrement", true)
 	desired := map[string]bool{}
 	sourceByOutput := map[string]string{}
+	destinations := map[string]string{}
+	outputGroups := map[string][]string{}
 	eligible := map[string]bool{}
 	vids := []remoteFile{}
 	for _, f := range files {
@@ -226,29 +228,53 @@ func (a *App) executeFiles(ctx context.Context, t, c, s, r Object) error {
 		if e != nil {
 			return e
 		}
+		if str(t, "libraryType") == "movie" && boolean(t, "skipMovieExtras", true) && movieExtra(rel) {
+			continue
+		}
 		if boolean(t, "skipInvalidStructure", false) && str(t, "libraryType") != "auto" && structureReason(rel, str(t, "libraryType")) != "" {
 			continue
 		}
-		dest, e := outputPath(str(t, "path"), f.Path, str(t, "renameRegex"))
+		dest, e := taskOutputPath(t, f.Path)
 		if e != nil {
 			return e
+		}
+		destinations[f.Path] = dest
+		eligible[f.Path] = true
+		vids = append(vids, f)
+	}
+	var selections []Object
+	vids, selections = selectMovieVersions(t, vids)
+	r["filteredVersions"] = len(selections)
+	r["movieSelections"] = selections
+	for _, selection := range selections {
+		delete(destinations, str(selection, "filtered"))
+	}
+	for _, f := range vids {
+		key := strings.ToLower(destinations[f.Path])
+		outputGroups[key] = append(outputGroups[key], f.Path)
+	}
+	// Preserve every edition/file without overwriting when clean names coincide.
+	for _, f := range vids {
+		dest := destinations[f.Path]
+		if len(outputGroups[strings.ToLower(dest)]) > 1 && str(t, "libraryType") == "movie" && str(t, "movieNaming") != "original" && str(t, "renameRegex") == "" {
+			dest = strings.TrimSuffix(dest, ".strm") + " - version-" + hashBytes([]byte(f.Path))[:12] + ".strm"
 		}
 		key := strings.ToLower(dest)
 		if src, ok := sourceByOutput[key]; ok && src != f.Path {
 			return errors.New("输出文件名冲突: " + dest)
 		}
 		sourceByOutput[key] = f.Path
+		destinations[f.Path] = dest
 		desired[dest] = true
-		eligible[f.Path] = true
-		vids = append(vids, f)
 	}
+
 	r["total"] = len(vids)
 	r["stage"] = "WRITE_STRM"
 	a.updateRun(r)
 	write := func(rel, source string, b []byte) error {
 		if old, ok := owned[rel]; ok {
 			m, _ := old.(map[string]any)
-			if str(m, "source") != source && str(m, "source") != "" {
+			if str(m, "source") != source && str(m, "source") != "" && !canReplaceMovieSource(t, str(m, "source"), source) {
 				if str(m, "hash") == hashBytes(b) {
 					desired[rel] = true
 					return nil
@@ -272,9 +298,15 @@ func (a *App) executeFiles(ctx context.Context, t, c, s, r Object) error {
 		if e = ctx.Err(); e != nil {
 			return e
 		}
-		dest, _ := outputPath(str(t, "path"), f.Path, str(t, "renameRegex"))
+		dest := destinations[f.Path]
 		_, missing := os.Stat(filepath.Join(root, dest))
-		if reset || changedDirs[path.Dir(f.Path)] || missing != nil {
+		metadataMissing := false
+		if boolean(t, "needScrap", false) && boolean(obj(s, "scraping"), "enabled", true) {
+			_, err := os.Stat(filepath.Join(root, strings.TrimSuffix(dest, ".strm")+".nfo"))
+			metadataMissing = os.IsNotExist(err)
+		}
+		sourceChanged := str(obj(owned, dest), "source") != f.Path
+		if reset || changedDirs[path.Dir(f.Path)] || missing != nil || metadataMissing || sourceChanged {
 			e = write(dest, f.Path, []byte(strmURL(c, f)))
 			if e == nil && boolean(t, "needScrap", false) {
 				e = a.processMetadata(ctx, t, c, s, f, dirs[path.Dir(f.Path)], dest, write)
@@ -306,7 +338,12 @@ func (a *App) executeFiles(ctx context.Context, t, c, s, r Object) error {
 	for rel, v := range owned {
 		m, _ := v.(map[string]any)
 		src := str(m, "source")
-		if desired[rel] || entries[src] != nil && (!eligible[src] || !strings.HasSuffix(strings.ToLower(rel), ".strm")) {
+		keep := entries[src] != nil && (!eligible[src] || !strings.HasSuffix(strings.ToLower(rel), ".strm"))
+		if keep && eligible[src] && str(t, "libraryType") == "movie" && !strings.HasSuffix(strings.ToLower(rel), ".strm") {
+			stem := strings.TrimSuffix(destinations[src], ".strm")
+			keep = strings.HasPrefix(rel, stem+".") || strings.HasPrefix(rel, stem+"-poster.") || strings.HasPrefix(rel, stem+"-fanart.")
+		}
+		if desired[rel] || keep {
 			continue
 		}
 		rr, e := os.OpenRoot(root)

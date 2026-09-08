@@ -424,7 +424,7 @@ func (a *App) saveConfig(r *http.Request, kind string, id int64) (any, error) {
 		if _, e = a.Store.Get("openlist", num(m, "openlistConfigId")); e != nil {
 			return nil, e
 		}
-		m = merge(Object{"libraryType": "auto", "isIncrement": true, "needScrap": false, "mediaRefreshScope": "NONE"}, m)
+		m = merge(Object{"libraryType": "auto", "movieVersions": "best", "movieNaming": "smart", "skipMovieExtras": true, "isIncrement": true, "needScrap": false, "mediaRefreshScope": "NONE"}, m)
 		if str(m, "cron") != "" {
 			settings, e := a.settings()
 			if e != nil {
@@ -433,6 +433,12 @@ func (a *App) saveConfig(r *http.Request, kind string, id int64) (any, error) {
 			if _, e = cronTrigger(str(m, "cron"), str(settings, "timezone")); e != nil {
 				return nil, e
 			}
+		}
+		if mode := str(m, "movieVersions"); mode != "best" && mode != "all" {
+			return nil, errors.New("电影版本策略必须为 best 或 all")
+		}
+		if mode := str(m, "movieNaming"); mode != "smart" && mode != "original" {
+			return nil, errors.New("电影 STRM 命名方式必须为 smart 或 original")
 		}
 		if _, e = renameFile("test.mkv", str(m, "renameRegex")); e != nil {
 			return nil, e
