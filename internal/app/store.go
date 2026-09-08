@@ -95,6 +95,8 @@ func OpenStore(dir string) (*Store, error) {
  CREATE TABLE IF NOT EXISTS sequences(kind TEXT PRIMARY KEY,value INTEGER NOT NULL);
  CREATE TABLE IF NOT EXISTS admin(id INTEGER PRIMARY KEY CHECK(id=1),username TEXT NOT NULL,password TEXT NOT NULL);
  CREATE TABLE IF NOT EXISTS sessions(id TEXT PRIMARY KEY,username TEXT NOT NULL,expires INTEGER NOT NULL);
+ CREATE TABLE IF NOT EXISTS output_files(task_id INTEGER NOT NULL,path TEXT NOT NULL,source TEXT NOT NULL,hash TEXT NOT NULL,PRIMARY KEY(task_id,path));
+ CREATE TABLE IF NOT EXISTS output_journal(task_id INTEGER NOT NULL,path TEXT NOT NULL,root TEXT NOT NULL,source TEXT NOT NULL,hash TEXT NOT NULL,PRIMARY KEY(task_id,path));
  CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY,value TEXT NOT NULL);
  PRAGMA user_version=1;`)
 	if err != nil {
@@ -202,4 +204,29 @@ func require(m Object, keys ...string) error {
 		}
 	}
 	return nil
+}
+
+func (s *Store) Owned(id int64) (Object, error) {
+	rows, e := s.DB.Query("SELECT path,source,hash FROM output_files WHERE task_id=?", id)
+	if e != nil {
+		return nil, e
+	}
+	defer rows.Close()
+	out := Object{}
+	for rows.Next() {
+		var p, src, h string
+		if e = rows.Scan(&p, &src, &h); e != nil {
+			return nil, e
+		}
+		out[p] = Object{"source": src, "hash": h}
+	}
+	return out, rows.Err()
+}
+func (s *Store) Own(id int64, p, source, hash string) error {
+	_, e := s.DB.Exec("INSERT INTO output_files(task_id,path,source,hash) VALUES(?,?,?,?) ON CONFLICT(task_id,path) DO UPDATE SET source=excluded.source,hash=excluded.hash", id, p, source, hash)
+	return e
+}
+func (s *Store) Unown(id int64, p string) error {
+	_, e := s.DB.Exec("DELETE FROM output_files WHERE task_id=? AND path=?", id, p)
+	return e
 }

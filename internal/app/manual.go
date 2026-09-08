@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"path"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -45,16 +46,26 @@ func (a *App) preview(ctx context.Context, t, c, s, req Object) (Object, error) 
 	}
 	files, e := a.scan(ctx, c, dir)
 	flat := false
-	if e != nil {
+	if e != nil || video(path.Base(dir), s) && len(files) == 0 {
 		m, ge := a.remote(ctx, c, "get", Object{"path": dir, "password": ""})
 		if ge != nil || boolean(m, "is_dir", true) {
-			return nil, e
+			return nil, errors.New("无法读取所选媒体路径")
 		}
 		if !video(path.Base(dir), s) {
 			return nil, errors.New("请选择媒体目录或视频文件")
 		}
 		files = []remoteFile{{Name: path.Base(dir), Path: dir}}
 		flat = true
+		siblings, se := a.list(ctx, c, path.Dir(dir))
+		if se != nil {
+			return nil, se
+		}
+		base := strings.TrimSuffix(path.Base(dir), path.Ext(dir))
+		for _, asset := range siblings {
+			if !asset.IsDir && asset.Path != dir && strings.HasPrefix(asset.Name, base+".") && !video(asset.Name, s) {
+				files = append(files, asset)
+			}
+		}
 	}
 	typ := str(t, "libraryType")
 	if str(req, "mediaType") != "" {
@@ -76,7 +87,7 @@ func (a *App) preview(ctx context.Context, t, c, s, req Object) (Object, error) 
 		count++
 		newBase := title
 		if str(m, "mediaType") == "tv" {
-			season, ep := mediaNumbers(f.Path)
+			season, ep := mediaNumbersConfig(s, f.Path)
 			if ep == 0 {
 				return nil, fmt.Errorf("无法识别集数: %s", f.Name)
 			}
@@ -93,8 +104,33 @@ func (a *App) preview(ctx context.Context, t, c, s, req Object) (Object, error) 
 		}
 		generated = append(generated, strings.TrimSuffix(f.Name, path.Ext(f.Name))+".nfo")
 	}
+	seasonRenames := []Object{}
+	if str(m, "mediaType") == "tv" {
+		for _, f := range files {
+			if !f.IsDir {
+				continue
+			}
+			if n, ok := parseSeason(f.Name); ok {
+				target := fmt.Sprintf("Season %02d", n)
+				if target != f.Name {
+					seasonRenames = append(seasonRenames, Object{"sourcePath": f.Path, "sourceName": f.Name, "targetName": target, "seasonNumber": n})
+				}
+			}
+		}
+		sort.Slice(seasonRenames, func(i, j int) bool {
+			return len(str(seasonRenames[i], "sourcePath")) > len(str(seasonRenames[j], "sourcePath"))
+		})
+	}
+	targets := map[string]string{}
+	for _, item := range renames {
+		key := strings.ToLower(path.Join(path.Dir(str(item, "sourcePath")), str(item, "targetName")))
+		if old, ok := targets[key]; ok && old != str(item, "sourcePath") {
+			return nil, errors.New("整理后文件重名，请修正识别信息")
+		}
+		targets[key] = str(item, "sourcePath")
+	}
 	b, _ := json.Marshal(files)
-	p := Object{"directoryPath": dir, "mediaType": m["mediaType"], "matched": true, "searchTitle": req["title"], "searchYear": req["year"], "matchMessage": "匹配成功", "tmdbId": m["tmdbId"], "title": m["title"], "originalTitle": m["original_title"], "year": m["year"], "overview": m["overview"], "voteAverage": m["vote_average"], "videoFileCount": count, "organizeFlatMovie": flat, "proposedDirectoryName": directoryName, "proposedDirectoryRenames": []Object{}, "proposedDirectoryCreates": []string{}, "proposedFileRenames": renames, "generatedFiles": generated, "renamedGeneratedFiles": generated, "sourceFingerprint": hashBytes(b), "metadata": m}
+	p := Object{"directoryPath": dir, "mediaType": m["mediaType"], "matched": true, "searchTitle": req["title"], "searchYear": req["year"], "matchMessage": "匹配成功", "tmdbId": m["tmdbId"], "title": m["title"], "originalTitle": m["original_title"], "year": m["year"], "overview": m["overview"], "voteAverage": m["vote_average"], "videoFileCount": count, "organizeFlatMovie": flat, "proposedDirectoryName": directoryName, "proposedDirectoryRenames": seasonRenames, "proposedDirectoryCreates": []string{}, "proposedFileRenames": renames, "generatedFiles": generated, "renamedGeneratedFiles": generated, "sourceFingerprint": hashBytes(b), "metadata": m}
 	if flat {
 		p["proposedDirectoryCreates"] = []string{path.Join(path.Dir(dir), directoryName)}
 	}
@@ -275,8 +311,29 @@ func (a *App) executeManual(ctx context.Context, t, c, s, r Object) error {
 			if state != "done" {
 				r["renamedFileCount"] = num(r, "renamedFileCount") + 1
 			}
-			if flat {
+			if flat && str(item, "assetType") == "video" {
 				dir = path.Join(path.Dir(dir), str(item, "targetName"))
+			}
+		}
+		rawDirs, _ := json.Marshal(p["proposedDirectoryRenames"])
+		var seasonItems []Object
+		_ = json.Unmarshal(rawDirs, &seasonItems)
+		for i, item := range seasonItems {
+			source := str(item, "sourcePath")
+			key := "season-" + strconv.Itoa(i)
+			if str(obj(obj(r, "steps"), key), "state") == "" {
+				siblings, err := a.list(ctx, c, path.Dir(source))
+				if err != nil {
+					return err
+				}
+				for _, f := range siblings {
+					if strings.EqualFold(f.Name, str(item, "targetName")) {
+						return errors.New("目标季目录已存在")
+					}
+				}
+			}
+			if err := a.manualStep(ctx, c, r, key, "rename", Object{"path": source, "name": str(item, "targetName")}); err != nil {
+				return err
 			}
 		}
 		if !flat && path.Base(dir) != str(p, "proposedDirectoryName") && dir != str(t, "path") {
@@ -303,7 +360,7 @@ func (a *App) executeManual(ctx context.Context, t, c, s, r Object) error {
 			if e := a.manualStep(ctx, c, r, "mkdir", "mkdir", Object{"path": target}); e != nil {
 				return e
 			}
-			if e := a.manualStep(ctx, c, r, "move", "move", Object{"src_dir": path.Dir(dir), "dst_dir": target, "names": []string{path.Base(dir)}}); e != nil {
+			if e := a.manualStep(ctx, c, r, "move", "move", Object{"src_dir": path.Dir(dir), "dst_dir": target, "names": flatNames(p)}); e != nil {
 				return e
 			}
 			dir = target
@@ -328,7 +385,7 @@ func (a *App) executeManual(ctx context.Context, t, c, s, r Object) error {
 		if f.IsDir || !video(f.Name, s) {
 			continue
 		}
-		assets, e := a.metadataFiles(ctx, s, m, f.Name)
+		assets, e := a.metadataFiles(ctx, s, m, f.Path)
 		if e != nil {
 			return e
 		}
@@ -465,4 +522,15 @@ func (a *App) retryManual(taskID, jobID int64) (Object, error) {
 		a.Store.Save("manual", jobID, r)
 	}()
 	return result, nil
+}
+
+func flatNames(p Object) []string {
+	var items []Object
+	b, _ := json.Marshal(p["proposedFileRenames"])
+	_ = json.Unmarshal(b, &items)
+	names := []string{}
+	for _, item := range items {
+		names = append(names, str(item, "targetName"))
+	}
+	return names
 }

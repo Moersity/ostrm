@@ -192,7 +192,7 @@ func strmURL(c Object, f remoteFile) string {
 }
 func video(name string, settings Object) bool {
 	ext := strings.ToLower(strings.TrimPrefix(path.Ext(name), "."))
-	xs, _ := settings["videoExtensions"].([]any)
+	xs, _ := settings["mediaExtensions"].([]any)
 	if len(xs) == 0 {
 		xs = []any{"mp4", "mkv", "avi", "mov", "wmv", "flv", "webm", "m4v", "ts", "m2ts", "iso", "rmvb", "rm", "mpg", "mpeg", "3gp", "vob"}
 	}

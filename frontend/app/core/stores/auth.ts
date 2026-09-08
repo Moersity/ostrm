@@ -123,7 +123,7 @@ export const useAuthStore = defineStore('auth', {
 
       // 解析过期时间
       try {
-        const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))) as { exp?: number }
+        const payload = JSON.parse(atob((token.split('.')[1] || '').replace(/-/g, '+').replace(/_/g, '/'))) as { exp?: number }
         this.tokenExpiresAt = payload.exp !== undefined ? payload.exp * 1000 : null
       } catch (e) {
         console.error('解析token过期时间失败:', e)
@@ -226,7 +226,7 @@ export const useAuthStore = defineStore('auth', {
 
           // 解析过期时间
           try {
-            const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))) as { exp?: number }
+            const payload = JSON.parse(atob((token.split('.')[1] || '').replace(/-/g, '+').replace(/_/g, '/'))) as { exp?: number }
             this.tokenExpiresAt = payload.exp !== undefined ? payload.exp * 1000 : null
           } catch {
             this.tokenExpiresAt = null

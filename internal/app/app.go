@@ -17,7 +17,13 @@ import (
 var Version = "3.0.0-dev"
 var Commit = "unknown"
 
+type cacheEntry struct {
+	value Object
+	until time.Time
+}
 type App struct {
+	clients  map[string]*http.Client
+	cache    map[string]cacheEntry
 	Config   Config
 	Store    *Store
 	Client   *http.Client
@@ -52,7 +58,7 @@ func New(c Config) (*App, error) {
 		return nil, e
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	a := &App{Config: c, Store: s, Client: &http.Client{Timeout: 30 * time.Second, Transport: &http.Transport{Proxy: http.ProxyFromEnvironment, DialContext: (&net.Dialer{Timeout: 10 * time.Second}).DialContext, MaxIdleConns: 32, IdleConnTimeout: 60 * time.Second, ResponseHeaderTimeout: 30 * time.Second}}, limits: map[string]*limiter{}, active: map[int64]context.CancelFunc{}, ctx: ctx, cancel: cancel, lock: lock}
+	a := &App{Config: c, Store: s, Client: &http.Client{Timeout: 30 * time.Second, Transport: &http.Transport{Proxy: http.ProxyFromEnvironment, DialContext: (&net.Dialer{Timeout: 10 * time.Second}).DialContext, MaxIdleConns: 32, IdleConnTimeout: 60 * time.Second, ResponseHeaderTimeout: 30 * time.Second}}, clients: map[string]*http.Client{}, cache: map[string]cacheEntry{}, limits: map[string]*limiter{}, active: map[int64]context.CancelFunc{}, ctx: ctx, cancel: cancel, lock: lock}
 	f, e := os.OpenFile(filepath.Join(c.DataDir, "logs", "backend.log"), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
 	if e != nil {
 		a.Close()
@@ -82,7 +88,12 @@ func New(c Config) (*App, error) {
 			}
 		}
 	}
-	a.wg.Add(1)
+	if e = a.recoverOutputs(); e != nil {
+		a.Close()
+		return nil, e
+	}
+	a.wg.Add(2)
+	go a.maintenance()
 	go a.scheduleLoop()
 	return a, nil
 }

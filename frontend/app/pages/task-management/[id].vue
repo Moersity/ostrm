@@ -158,6 +158,7 @@
               </div>
             </div>
 
+            <TaskRunStatus :task-id="task.id" />
             <div class="mt-3 flex items-center space-x-4 flex-wrap gap-y-2">
               <label class="flex items-center text-sm text-white/60">
                 <input type="checkbox" :checked="task.needScrap" disabled class="mr-2 h-4 w-4 rounded border-white/20 bg-white/5 text-blue-500">
@@ -347,6 +348,7 @@
               </div>
 
               <div class="space-y-3">
+                <label class="mb-3 flex items-start gap-2 text-sm text-amber-200"><input v-model="taskForm.autoRenameMedia" type="checkbox" class="mt-1">自动整理远端媒体（会重命名 OpenList 中的目录和文件，默认关闭）</label>
                 <label class="flex items-start cursor-pointer">
                   <input v-model="taskForm.needScrap" type="checkbox" class="mt-1 h-4 w-4 rounded border-white/20 bg-white/5 text-blue-500">
                   <span class="ml-2 text-sm text-white/70">
@@ -647,7 +649,7 @@ const taskForm = ref({
   libraryType: '',
   strmPath: '',
   cron: '',
-  needScrap: false,
+  autoRenameMedia: false, needScrap: false,
   skipInvalidStructure: false,
   renameRegex: '',
   mediaServerConfigId: null,
@@ -753,7 +755,7 @@ const onMediaLibraryChange = () => {
 const resetTaskForm = () => {
   taskForm.value = {
     taskName: '', path: '', strmPath: '', cron: '',
-    libraryType: '', needScrap: false, skipInvalidStructure: false,
+    libraryType: '', autoRenameMedia: false, needScrap: false, skipInvalidStructure: false,
     renameRegex: '', mediaServerConfigId: null, mediaRefreshScope: 'NONE', mediaLibraryId: '',
     mediaLibraryName: '', isIncrement: true, isActive: true
   }
@@ -765,7 +767,7 @@ const editTask = (task) => {
   editingTaskId.value = task.id
   taskForm.value = {
     taskName: task.taskName, path: task.path, strmPath: task.strmPath,
-    libraryType: task.libraryType || 'auto', cron: task.cron || '', needScrap: task.needScrap || false,
+    libraryType: task.libraryType || 'auto', cron: task.cron || '', autoRenameMedia: task.autoRenameMedia || false, needScrap: task.needScrap || false,
     skipInvalidStructure: task.libraryType && task.libraryType !== 'auto' ? task.skipInvalidStructure || false : false,
     renameRegex: task.renameRegex || '', mediaServerConfigId: task.mediaServerConfigId || null,
     mediaRefreshScope: task.mediaRefreshScope || 'NONE', mediaLibraryId: task.mediaLibraryId || '',

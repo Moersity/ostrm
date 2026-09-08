@@ -1,0 +1,3719 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "OStrm API",
+    "description": "OStrm 单用户系统 API 文档",
+    "version": "1.0"
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:31120",
+      "description": "Generated server url"
+    }
+  ],
+  "security": [
+    {
+      "Bearer Authentication": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "日志管理",
+      "description": "系统日志相关接口"
+    },
+    {
+      "name": "任务配置管理",
+      "description": "任务配置的增删改查接口"
+    },
+    {
+      "name": "认证管理",
+      "description": "用户认证相关接口"
+    },
+    {
+      "name": "版本管理",
+      "description": "版本检查和更新相关接口"
+    },
+    {
+      "name": "OpenList配置管理",
+      "description": "OpenList配置的增删改查接口"
+    },
+    {
+      "name": "系统配置管理",
+      "description": "系统配置的读取和保存接口"
+    }
+  ],
+  "paths": {
+    "/api/task-config/{id}": {
+      "get": {
+        "tags": [
+          "任务配置管理"
+        ],
+        "summary": "根据ID查询配置",
+        "description": "根据配置ID获取任务配置详情",
+        "operationId": "getConfigById",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "配置ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseTaskConfigDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "任务配置管理"
+        ],
+        "summary": "更新配置",
+        "description": "更新指定ID的任务配置",
+        "operationId": "updateConfig",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "配置ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaskConfigDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseTaskConfigDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "任务配置管理"
+        ],
+        "summary": "删除配置",
+        "description": "删除指定ID的任务配置",
+        "operationId": "deleteConfig",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "配置ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/openlist-config/{id}": {
+      "get": {
+        "tags": [
+          "OpenList配置管理"
+        ],
+        "summary": "根据ID查询配置",
+        "description": "根据配置ID获取OpenList配置详情",
+        "operationId": "getConfigById_1",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "配置ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOpenlistConfigDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "OpenList配置管理"
+        ],
+        "summary": "更新配置",
+        "description": "更新指定ID的配置",
+        "operationId": "updateConfig_1",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "配置ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenlistConfigDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOpenlistConfigDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "OpenList配置管理"
+        ],
+        "summary": "删除配置",
+        "description": "删除指定ID的配置",
+        "operationId": "deleteConfig_1",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "配置ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/media-servers/{id}": {
+      "put": {
+        "tags": [
+          "media-server-controller"
+        ],
+        "operationId": "update",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseView"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "media-server-controller"
+        ],
+        "operationId": "delete",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/task-config": {
+      "get": {
+        "tags": [
+          "任务配置管理"
+        ],
+        "summary": "查询所有配置",
+        "description": "获取所有任务配置列表",
+        "operationId": "getAllConfigs",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseListTaskConfigDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "任务配置管理"
+        ],
+        "summary": "创建配置",
+        "description": "创建新的任务配置",
+        "operationId": "createConfig",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaskConfigDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseTaskConfigDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/task-config/{id}/submit": {
+      "post": {
+        "tags": [
+          "任务配置管理"
+        ],
+        "summary": "提交任务执行",
+        "description": "将指定ID的任务提交到线程池中执行",
+        "operationId": "submitTask",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "任务配置ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaskSubmitRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseString"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/task-config/{id}/structure-check": {
+      "post": {
+        "tags": [
+          "任务配置管理"
+        ],
+        "summary": "检查任务目录结构",
+        "description": "递归扫描任务目录，并以文件树返回目录层级不符合要求的视频文件",
+        "operationId": "checkTaskStructure",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "任务配置ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseTaskStructureCheckResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/task-config/{id}/structure-check/directory": {
+      "post": {
+        "tags": [
+          "任务配置管理"
+        ],
+        "summary": "检查单个第一层目录",
+        "description": "递归检查指定第一层子目录，仅返回该目录的异常文件树",
+        "operationId": "checkStructureDirectory",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "任务配置ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StructureDirectoryCheckRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseTaskStructureCheckResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/task-config/{id}/manual-scraping/preview": {
+      "post": {
+        "tags": [
+          "任务配置管理"
+        ],
+        "summary": "预览手动刮削",
+        "description": "识别所选媒体目录或平铺电影文件，并返回TMDB信息、重命名和上传文件预览",
+        "operationId": "previewManualScraping",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "任务配置ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponsePreview"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/task-config/{id}/manual-scraping/jobs/{jobId}/retry": {
+      "post": {
+        "tags": [
+          "任务配置管理"
+        ],
+        "summary": "重试手动刮削作业",
+        "description": "从已持久化的重命名、生成或上传检查点继续",
+        "operationId": "retryManualScrapingJob",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "任务配置ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "jobId",
+            "in": "path",
+            "description": "手动刮削作业ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseJobView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/task-config/{id}/manual-scraping/execute": {
+      "post": {
+        "tags": [
+          "任务配置管理"
+        ],
+        "summary": "提交手动刮削",
+        "description": "立即返回作业ID，后台分阶段执行重命名、生成和上传",
+        "operationId": "executeManualScraping",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "任务配置ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExecuteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseJobView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/system/test-notification": {
+      "post": {
+        "tags": [
+          "系统配置管理"
+        ],
+        "summary": "测试通知配置",
+        "description": "通过 Apprise 发送一条测试通知",
+        "operationId": "testNotification",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseString"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/system/test-ai-config": {
+      "post": {
+        "tags": [
+          "系统配置管理"
+        ],
+        "summary": "测试 AI 配置",
+        "description": "测试 AI 识别配置是否有效",
+        "operationId": "testAiConfig",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseString"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/system/config": {
+      "get": {
+        "tags": [
+          "系统配置管理"
+        ],
+        "summary": "获取系统配置",
+        "description": "获取当前系统配置信息",
+        "operationId": "getSystemConfig",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseMapStringObject"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "系统配置管理"
+        ],
+        "summary": "保存系统配置",
+        "description": "保存系统配置信息",
+        "operationId": "saveSystemConfig",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseString"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/openlist-config": {
+      "get": {
+        "tags": [
+          "OpenList配置管理"
+        ],
+        "summary": "查询所有配置",
+        "description": "获取所有OpenList配置列表",
+        "operationId": "getAllConfigs_1",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseListOpenlistConfigDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "OpenList配置管理"
+        ],
+        "summary": "创建配置",
+        "description": "创建新的OpenList配置",
+        "operationId": "createConfig_1",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpenlistConfigDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOpenlistConfigDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/openlist-config/validate": {
+      "post": {
+        "tags": [
+          "OpenList配置管理"
+        ],
+        "summary": "验证OpenList配置",
+        "description": "验证OpenList的baseUrl和token是否有效",
+        "operationId": "validateConfig",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ValidateConfigRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseValidateConfigResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/openlist-config/validate-path": {
+      "post": {
+        "tags": [
+          "OpenList配置管理"
+        ],
+        "summary": "验证任务路径",
+        "description": "验证指定的任务路径在OpenList中是否存在且是目录",
+        "operationId": "validatePath",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ValidatePathRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/media-servers": {
+      "get": {
+        "tags": [
+          "media-server-controller"
+        ],
+        "operationId": "list",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseListView"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "media-server-controller"
+        ],
+        "operationId": "create",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/media-servers/{id}/test": {
+      "post": {
+        "tags": [
+          "media-server-controller"
+        ],
+        "operationId": "testSaved",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseConnectionResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/media-servers/{id}/refresh": {
+      "post": {
+        "tags": [
+          "media-server-controller"
+        ],
+        "operationId": "refresh",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseMediaServerRefreshResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/media-servers/test": {
+      "post": {
+        "tags": [
+          "media-server-controller"
+        ],
+        "operationId": "testPreview",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseConnectionResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/logs/frontend": {
+      "post": {
+        "tags": [
+          "日志管理"
+        ],
+        "summary": "接收前端日志",
+        "description": "接收前端发送的日志数据（无需认证）",
+        "operationId": "receiveFrontendLogs",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FrontendLogRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "请求数据无效",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseString"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务器内部错误",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseString"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "接收成功",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/data-report/events": {
+      "post": {
+        "tags": [
+          "data-report-controller"
+        ],
+        "operationId": "reportEvents",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BatchReportRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/data-report/event": {
+      "post": {
+        "tags": [
+          "data-report-controller"
+        ],
+        "operationId": "reportEvent",
+        "parameters": [
+          {
+            "name": "event",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/sign-up": {
+      "post": {
+        "tags": [
+          "认证管理"
+        ],
+        "summary": "用户注册",
+        "description": "用户注册接口",
+        "operationId": "signUp",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SignUpDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "注册成功",
+            "content": {
+              "application/json": {
+                "example": {
+                  "code": 200,
+                  "message": "注册成功",
+                  "data": null
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "注册失败",
+            "content": {
+              "application/json": {
+                "example": {
+                  "code": 400,
+                  "message": "用户已存在",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/sign-out": {
+      "post": {
+        "tags": [
+          "认证管理"
+        ],
+        "summary": "用户登出",
+        "description": "用户登出接口，需要JWT认证",
+        "operationId": "signOut",
+        "responses": {
+          "401": {
+            "description": "未授权",
+            "content": {
+              "application/json": {
+                "example": {
+                  "code": 401,
+                  "message": "未授权访问",
+                  "data": null
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "登出成功",
+            "content": {
+              "application/json": {
+                "example": {
+                  "code": 200,
+                  "message": "登出成功",
+                  "data": null
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer Authentication": []
+          }
+        ]
+      }
+    },
+    "/api/auth/sign-in": {
+      "post": {
+        "tags": [
+          "认证管理"
+        ],
+        "summary": "用户登录",
+        "description": "用户登录接口，成功后返回JWT token",
+        "operationId": "signIn",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SignInDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "登录成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                },
+                "example": {
+                  "code": 200,
+                  "message": "登录成功",
+                  "data": {
+                    "username": "admin",
+                    "token": "eyJ...",
+                    "expiresAt": 1234567890
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "登录失败",
+            "content": {
+              "application/json": {
+                "example": {
+                  "code": 400,
+                  "message": "用户名或密码错误",
+                  "data": null
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/refresh": {
+      "post": {
+        "tags": [
+          "认证管理"
+        ],
+        "summary": "刷新Token",
+        "description": "刷新JWT token接口，需要JWT认证",
+        "operationId": "refresh_1",
+        "responses": {
+          "200": {
+            "description": "Token刷新成功",
+            "content": {
+              "application/json": {
+                "example": {
+                  "code": 200,
+                  "message": "Token刷新成功",
+                  "data": {
+                    "token": "eyJ...",
+                    "expiresAt": 1234567890
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Token无效",
+            "content": {
+              "application/json": {
+                "example": {
+                  "code": 401,
+                  "message": "Token无效，无法刷新",
+                  "data": null
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer Authentication": []
+          }
+        ]
+      }
+    },
+    "/api/auth/change-password": {
+      "post": {
+        "tags": [
+          "认证管理"
+        ],
+        "summary": "修改密码",
+        "description": "修改用户密码接口，需要JWT认证",
+        "operationId": "changePassword",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "400": {
+            "description": "密码修改失败",
+            "content": {
+              "application/json": {
+                "example": {
+                  "code": 400,
+                  "message": "原密码错误",
+                  "data": null
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未授权",
+            "content": {
+              "application/json": {
+                "example": {
+                  "code": 401,
+                  "message": "未授权访问",
+                  "data": null
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "密码修改成功",
+            "content": {
+              "application/json": {
+                "example": {
+                  "code": 200,
+                  "message": "密码修改成功",
+                  "data": null
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer Authentication": []
+          }
+        ]
+      }
+    },
+    "/api/task-config/{id}/status": {
+      "patch": {
+        "tags": [
+          "任务配置管理"
+        ],
+        "summary": "更新配置启用状态",
+        "description": "启用或禁用指定ID的任务配置",
+        "operationId": "updateConfigStatus",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "配置ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateStatusRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/task-config/{id}/last-exec-time": {
+      "patch": {
+        "tags": [
+          "任务配置管理"
+        ],
+        "summary": "更新最后执行时间",
+        "description": "更新指定ID任务配置的最后执行时间",
+        "operationId": "updateLastExecTime",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "配置ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateLastExecTimeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/openlist-config/{id}/status": {
+      "patch": {
+        "tags": [
+          "OpenList配置管理"
+        ],
+        "summary": "启用/禁用配置",
+        "description": "更新指定配置的启用状态",
+        "operationId": "updateConfigStatus_1",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "配置ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateStatusRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/version/latest": {
+      "get": {
+        "tags": [
+          "版本管理"
+        ],
+        "summary": "获取最新版本信息",
+        "description": "获取GitHub上的最新版本信息",
+        "operationId": "getLatestVersion",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseVersionCheckResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/version/check": {
+      "get": {
+        "tags": [
+          "版本管理"
+        ],
+        "summary": "检查版本更新",
+        "description": "检查当前版本是否有新版本可用",
+        "operationId": "checkVersion",
+        "parameters": [
+          {
+            "name": "currentVersion",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "dev"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseVersionCheckResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/task-config/{id}/structure-check/directories": {
+      "get": {
+        "tags": [
+          "任务配置管理"
+        ],
+        "summary": "获取待检查目录",
+        "description": "只读取任务根目录，并返回第一层子目录和根目录文件检查结果",
+        "operationId": "getStructureCheckDirectories",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "任务配置ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseTaskStructureCheckOverview"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/task-config/{id}/manual-scraping/tree": {
+      "get": {
+        "tags": [
+          "任务配置管理"
+        ],
+        "summary": "获取手动刮削目录树",
+        "description": "只读取任务根目录的直接子目录和本层媒体文件；电影任务会将根目录视频作为独立可选节点",
+        "operationId": "getManualScrapingTree",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "任务配置ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseDirectoryTree"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/task-config/{id}/manual-scraping/tree/children": {
+      "get": {
+        "tags": [
+          "任务配置管理"
+        ],
+        "summary": "加载手动刮削子目录",
+        "description": "只读取指定目录的直接子目录和本层媒体文件数量",
+        "operationId": "getManualScrapingChildren",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "任务配置ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "directoryPath",
+            "in": "query",
+            "description": "待展开目录路径",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseDirectoryNode"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/task-config/{id}/manual-scraping/jobs/{jobId}": {
+      "get": {
+        "tags": [
+          "任务配置管理"
+        ],
+        "summary": "查询手动刮削进度",
+        "description": "返回作业当前阶段、进度和错误信息",
+        "operationId": "getManualScrapingJob",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "任务配置ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "jobId",
+            "in": "path",
+            "description": "手动刮削作业ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseJobView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/task-config/{id}/manual-scraping/jobs/latest": {
+      "get": {
+        "tags": [
+          "任务配置管理"
+        ],
+        "summary": "查询最近手动刮削作业",
+        "description": "用于页面恢复当前进度或最近一次执行结果",
+        "operationId": "getLatestManualScrapingJob",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "任务配置ID",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseJobView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/task-config/task-name/{taskName}": {
+      "get": {
+        "tags": [
+          "任务配置管理"
+        ],
+        "summary": "根据任务名称查询配置",
+        "description": "根据任务名称获取任务配置",
+        "operationId": "getConfigByTaskName",
+        "parameters": [
+          {
+            "name": "taskName",
+            "in": "path",
+            "description": "任务名称",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseTaskConfigDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/task-config/scheduled": {
+      "get": {
+        "tags": [
+          "任务配置管理"
+        ],
+        "summary": "查询有定时任务的配置",
+        "description": "获取所有配置了定时任务的任务配置",
+        "operationId": "getScheduledConfigs",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseListTaskConfigDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/task-config/path": {
+      "get": {
+        "tags": [
+          "任务配置管理"
+        ],
+        "summary": "根据路径查询配置",
+        "description": "根据路径获取任务配置",
+        "operationId": "getConfigByPath",
+        "parameters": [
+          {
+            "name": "path",
+            "in": "query",
+            "description": "任务路径",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseTaskConfigDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/task-config/active": {
+      "get": {
+        "tags": [
+          "任务配置管理"
+        ],
+        "summary": "查询启用的配置",
+        "description": "获取所有启用状态的任务配置",
+        "operationId": "getActiveConfigs",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseListTaskConfigDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/openlist-config/username/{username}": {
+      "get": {
+        "tags": [
+          "OpenList配置管理"
+        ],
+        "summary": "根据用户名查询配置",
+        "description": "根据用户名获取OpenList配置",
+        "operationId": "getConfigByUsername",
+        "parameters": [
+          {
+            "name": "username",
+            "in": "path",
+            "description": "用户名",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseOpenlistConfigDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/openlist-config/active": {
+      "get": {
+        "tags": [
+          "OpenList配置管理"
+        ],
+        "summary": "查询启用的配置",
+        "description": "获取所有启用状态的OpenList配置",
+        "operationId": "getActiveConfigs_1",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseListOpenlistConfigDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/media-servers/{id}/libraries": {
+      "get": {
+        "tags": [
+          "media-server-controller"
+        ],
+        "operationId": "libraries",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseListLibraryView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/logs/{logType}": {
+      "get": {
+        "tags": [
+          "日志管理"
+        ],
+        "summary": "获取日志内容",
+        "description": "获取指定类型的日志内容（无需认证）",
+        "operationId": "getLogs",
+        "parameters": [
+          {
+            "name": "logType",
+            "in": "path",
+            "description": "日志类型",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "backend"
+          },
+          {
+            "name": "lines",
+            "in": "query",
+            "description": "获取行数",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1000
+            },
+            "example": 1000
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "获取成功",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务器内部错误",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseListString"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数错误",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseListString"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "日志管理"
+        ],
+        "summary": "清空日志文件",
+        "description": "清空指定类型的日志文件并继续接收新日志（无需认证）",
+        "operationId": "deleteLog",
+        "parameters": [
+          {
+            "name": "logType",
+            "in": "path",
+            "description": "日志类型",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "backend"
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "参数错误或日志文件不存在",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseString"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务器内部错误",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseString"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "删除成功",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/logs/{logType}/tail": {
+      "get": {
+        "tags": [
+          "日志管理"
+        ],
+        "summary": "增量获取日志",
+        "description": "首次获取日志尾部，后续根据游标仅读取新增内容（无需认证）",
+        "operationId": "getLogTail",
+        "parameters": [
+          {
+            "name": "logType",
+            "in": "path",
+            "description": "日志类型",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "backend"
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "description": "上次读取到的字节游标",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "fileKey",
+            "in": "query",
+            "description": "上次读取的文件标识",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "lines",
+            "in": "query",
+            "description": "首次加载或重置时获取的最大行数",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1000
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseLogReadResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/logs/{logType}/stats": {
+      "get": {
+        "tags": [
+          "日志管理"
+        ],
+        "summary": "获取日志统计信息",
+        "description": "获取日志的统计信息（无需认证）",
+        "operationId": "getLogStats",
+        "parameters": [
+          {
+            "name": "logType",
+            "in": "path",
+            "description": "日志类型",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "backend"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "获取成功",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务器内部错误",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseObject"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数错误",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseObject"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/logs/{logType}/download": {
+      "get": {
+        "tags": [
+          "日志管理"
+        ],
+        "summary": "下载日志文件",
+        "description": "下载指定类型的完整日志文件（无需认证）",
+        "operationId": "downloadLog",
+        "parameters": [
+          {
+            "name": "logType",
+            "in": "path",
+            "description": "日志类型",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "backend"
+          }
+        ],
+        "responses": {
+          "404": {
+            "description": "日志文件不存在",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "服务器内部错误",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数错误",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "下载成功",
+            "content": {
+              "application/octet-stream": {}
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/validate": {
+      "get": {
+        "tags": [
+          "认证管理"
+        ],
+        "summary": "验证Token",
+        "description": "验证JWT token是否有效，需要JWT认证",
+        "operationId": "validate",
+        "responses": {
+          "200": {
+            "description": "Token有效",
+            "content": {
+              "application/json": {
+                "example": {
+                  "code": 200,
+                  "message": "Token有效",
+                  "data": {
+                    "valid": true,
+                    "username": "user123",
+                    "expiresAt": 1234567890
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Token无效",
+            "content": {
+              "application/json": {
+                "example": {
+                  "code": 401,
+                  "message": "Token无效",
+                  "data": {
+                    "valid": false
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "Bearer Authentication": []
+          }
+        ]
+      }
+    },
+    "/api/auth/check-user": {
+      "get": {
+        "tags": [
+          "认证管理"
+        ],
+        "summary": "检查用户是否存在",
+        "description": "检查用户是否存在的接口",
+        "operationId": "checkUser",
+        "responses": {
+          "404": {
+            "description": "用户不存在",
+            "content": {
+              "application/json": {
+                "example": {
+                  "code": 404,
+                  "message": "用户不存在",
+                  "data": {
+                    "exists": false
+                  }
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "用户存在",
+            "content": {
+              "application/json": {
+                "example": {
+                  "code": 200,
+                  "message": "用户存在",
+                  "data": {
+                    "exists": true
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/version/cache/clear": {
+      "delete": {
+        "tags": [
+          "版本管理"
+        ],
+        "summary": "清除版本检查缓存",
+        "description": "清除版本检查相关的缓存数据",
+        "operationId": "clearVersionCache",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "*/*": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseString"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "TaskConfigDto": {
+        "required": [
+          "path",
+          "taskName"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "taskName": {
+            "maxLength": 200,
+            "minLength": 0,
+            "type": "string"
+          },
+          "path": {
+            "maxLength": 500,
+            "minLength": 0,
+            "type": "string"
+          },
+          "openlistConfigId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "needScrap": {
+            "type": "boolean"
+          },
+          "libraryType": {
+            "pattern": "^(auto|movie|tv|anime)$",
+            "type": "string"
+          },
+          "skipInvalidStructure": {
+            "type": "boolean"
+          },
+          "renameRegex": {
+            "maxLength": 500,
+            "minLength": 0,
+            "type": "string"
+          },
+          "mediaServerConfigId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "mediaRefreshScope": {
+            "pattern": "(?i)^(NONE|ALL|LIBRARY)$",
+            "type": "string"
+          },
+          "mediaLibraryId": {
+            "maxLength": 200,
+            "minLength": 0,
+            "type": "string"
+          },
+          "mediaLibraryName": {
+            "maxLength": 500,
+            "minLength": 0,
+            "type": "string"
+          },
+          "cron": {
+            "maxLength": 100,
+            "minLength": 0,
+            "type": "string"
+          },
+          "isIncrement": {
+            "type": "boolean"
+          },
+          "strmPath": {
+            "maxLength": 500,
+            "minLength": 0,
+            "type": "string"
+          },
+          "lastExecTime": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "isActive": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ApiResponseTaskConfigDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/TaskConfigDto"
+          }
+        }
+      },
+      "OpenlistConfigDto": {
+        "required": [
+          "baseUrl",
+          "token",
+          "username"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "baseUrl": {
+            "maxLength": 500,
+            "minLength": 0,
+            "pattern": "^https?://.*",
+            "type": "string"
+          },
+          "token": {
+            "maxLength": 1000,
+            "minLength": 0,
+            "type": "string"
+          },
+          "basePath": {
+            "maxLength": 500,
+            "minLength": 0,
+            "type": "string"
+          },
+          "username": {
+            "maxLength": 200,
+            "minLength": 0,
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "strmBaseUrl": {
+            "maxLength": 500,
+            "minLength": 0,
+            "type": "string"
+          },
+          "enableUrlEncoding": {
+            "type": "boolean"
+          },
+          "fsApiQpmLimit": {
+            "maximum": 6000,
+            "minimum": 0,
+            "type": "integer",
+            "format": "int32"
+          },
+          "fsApiQpsLimit": {
+            "maximum": 1000,
+            "minimum": 0,
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "description": "配置信息"
+      },
+      "ApiResponseOpenlistConfigDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/OpenlistConfigDto"
+          }
+        }
+      },
+      "SaveRequest": {
+        "required": [
+          "apiBaseUrl",
+          "name",
+          "serverType"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "maxLength": 200,
+            "minLength": 0,
+            "type": "string"
+          },
+          "serverType": {
+            "pattern": "(?i)^(EMBY|JELLYFIN)$",
+            "type": "string"
+          },
+          "apiBaseUrl": {
+            "maxLength": 500,
+            "minLength": 0,
+            "type": "string"
+          },
+          "apiKey": {
+            "maxLength": 1000,
+            "minLength": 0,
+            "type": "string"
+          },
+          "isActive": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ApiResponseView": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/View"
+          }
+        }
+      },
+      "View": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "name": {
+            "type": "string"
+          },
+          "serverType": {
+            "type": "string"
+          },
+          "apiBaseUrl": {
+            "type": "string"
+          },
+          "apiKeyConfigured": {
+            "type": "boolean"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "TaskSubmitRequest": {
+        "type": "object",
+        "properties": {
+          "isIncremental": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ApiResponseString": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "string"
+          }
+        }
+      },
+      "ApiResponseTaskStructureCheckResult": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/TaskStructureCheckResult"
+          }
+        }
+      },
+      "StructureNode": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "children": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StructureNode"
+            }
+          }
+        }
+      },
+      "TaskStructureCheckResult": {
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "taskName": {
+            "type": "string"
+          },
+          "libraryType": {
+            "type": "string"
+          },
+          "rootPath": {
+            "type": "string"
+          },
+          "expectedStructure": {
+            "type": "string"
+          },
+          "supported": {
+            "type": "boolean"
+          },
+          "scannedEntryCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "videoFileCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "invalidFileCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "message": {
+            "type": "string"
+          },
+          "tree": {
+            "$ref": "#/components/schemas/StructureNode"
+          }
+        }
+      },
+      "StructureDirectoryCheckRequest": {
+        "required": [
+          "directoryPath"
+        ],
+        "type": "object",
+        "properties": {
+          "directoryPath": {
+            "type": "string"
+          }
+        }
+      },
+      "PreviewRequest": {
+        "required": [
+          "directoryPath"
+        ],
+        "type": "object",
+        "properties": {
+          "directoryPath": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "year": {
+            "type": "string"
+          },
+          "tmdbId": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "ApiResponsePreview": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/Preview"
+          }
+        }
+      },
+      "Preview": {
+        "type": "object",
+        "properties": {
+          "directoryPath": {
+            "type": "string"
+          },
+          "mediaType": {
+            "type": "string"
+          },
+          "matched": {
+            "type": "boolean"
+          },
+          "searchTitle": {
+            "type": "string"
+          },
+          "searchYear": {
+            "type": "string"
+          },
+          "matchMessage": {
+            "type": "string"
+          },
+          "tmdbId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "title": {
+            "type": "string"
+          },
+          "originalTitle": {
+            "type": "string"
+          },
+          "year": {
+            "type": "string"
+          },
+          "overview": {
+            "type": "string"
+          },
+          "voteAverage": {
+            "type": "number",
+            "format": "double"
+          },
+          "posterUrl": {
+            "type": "string"
+          },
+          "backdropUrl": {
+            "type": "string"
+          },
+          "videoFileCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "organizeFlatMovie": {
+            "type": "boolean"
+          },
+          "proposedDirectoryName": {
+            "type": "string"
+          },
+          "proposedDirectoryRenames": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RenameItem"
+            }
+          },
+          "proposedDirectoryCreates": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "proposedFileRenames": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RenameItem"
+            }
+          },
+          "generatedFiles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "renamedGeneratedFiles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "RenameItem": {
+        "type": "object",
+        "properties": {
+          "sourcePath": {
+            "type": "string"
+          },
+          "sourceName": {
+            "type": "string"
+          },
+          "targetDirectory": {
+            "type": "string"
+          },
+          "targetName": {
+            "type": "string"
+          },
+          "assetType": {
+            "type": "string"
+          }
+        }
+      },
+      "ApiResponseJobView": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/JobView"
+          }
+        }
+      },
+      "JobView": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "taskId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "directoryPath": {
+            "type": "string"
+          },
+          "finalDirectoryPath": {
+            "type": "string"
+          },
+          "mediaType": {
+            "type": "string"
+          },
+          "tmdbId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "renameMedia": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string"
+          },
+          "stage": {
+            "type": "string"
+          },
+          "progress": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "message": {
+            "type": "string"
+          },
+          "errorMessage": {
+            "type": "string"
+          },
+          "renamedDirectoryCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "renamedFileCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "uploadedFiles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "completedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ExecuteRequest": {
+        "required": [
+          "directoryPath",
+          "mediaType",
+          "tmdbId"
+        ],
+        "type": "object",
+        "properties": {
+          "directoryPath": {
+            "type": "string"
+          },
+          "mediaType": {
+            "type": "string"
+          },
+          "tmdbId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "renameMedia": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ValidateConfigRequest": {
+        "type": "object",
+        "properties": {
+          "baseUrl": {
+            "type": "string"
+          },
+          "token": {
+            "type": "string"
+          }
+        },
+        "description": "验证配置请求"
+      },
+      "ApiResponseValidateConfigResponse": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/ValidateConfigResponse"
+          }
+        }
+      },
+      "ValidateConfigResponse": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string"
+          },
+          "basePath": {
+            "type": "string"
+          }
+        }
+      },
+      "ValidatePathRequest": {
+        "type": "object",
+        "properties": {
+          "openlistConfigId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "taskPath": {
+            "type": "string"
+          }
+        },
+        "description": "验证路径请求"
+      },
+      "ApiResponseVoid": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object"
+          }
+        }
+      },
+      "ApiResponseConnectionResult": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/ConnectionResult"
+          }
+        }
+      },
+      "ConnectionResult": {
+        "type": "object",
+        "properties": {
+          "serverName": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "productName": {
+            "type": "string"
+          },
+          "libraryCount": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "RefreshRequest": {
+        "type": "object",
+        "properties": {
+          "scope": {
+            "type": "string"
+          },
+          "libraryId": {
+            "type": "string"
+          }
+        }
+      },
+      "ApiResponseMediaServerRefreshResult": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/MediaServerRefreshResult"
+          }
+        }
+      },
+      "MediaServerRefreshResult": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "TRIGGERED",
+              "SKIPPED",
+              "FAILED"
+            ]
+          },
+          "serverName": {
+            "type": "string"
+          },
+          "serverType": {
+            "type": "string"
+          },
+          "scope": {
+            "type": "string"
+          },
+          "libraryName": {
+            "type": "string"
+          },
+          "failureCode": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
+      "FrontendLogRequest": {
+        "required": [
+          "logs"
+        ],
+        "type": "object",
+        "properties": {
+          "logs": {
+            "type": "array",
+            "description": "日志条目列表",
+            "items": {
+              "$ref": "#/components/schemas/LogEntry"
+            }
+          }
+        },
+        "description": "前端日志数据"
+      },
+      "LogEntry": {
+        "required": [
+          "level",
+          "message",
+          "timestamp"
+        ],
+        "type": "object",
+        "properties": {
+          "level": {
+            "type": "string",
+            "description": "日志级别",
+            "example": "info"
+          },
+          "message": {
+            "type": "string",
+            "description": "日志消息",
+            "example": "用户登录成功"
+          },
+          "timestamp": {
+            "type": "integer",
+            "description": "时间戳",
+            "format": "int64",
+            "example": 1640995200000
+          },
+          "userAgent": {
+            "type": "string",
+            "description": "用户代理",
+            "example": "Mozilla/5.0..."
+          },
+          "url": {
+            "type": "string",
+            "description": "页面URL",
+            "example": "/dashboard"
+          },
+          "userId": {
+            "type": "string",
+            "description": "用户ID",
+            "example": "user123"
+          },
+          "sessionId": {
+            "type": "string",
+            "description": "会话ID",
+            "example": "session456"
+          },
+          "extra": {
+            "type": "object",
+            "description": "额外数据"
+          }
+        },
+        "description": "日志条目"
+      },
+      "ApiResponse": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object"
+          }
+        }
+      },
+      "BatchReportRequest": {
+        "type": "object",
+        "properties": {
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EventData"
+            }
+          }
+        }
+      },
+      "EventData": {
+        "type": "object",
+        "properties": {
+          "event": {
+            "type": "string"
+          },
+          "properties": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object"
+            }
+          }
+        }
+      },
+      "SignUpDto": {
+        "required": [
+          "password",
+          "username"
+        ],
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string"
+          }
+        }
+      },
+      "SignInDto": {
+        "required": [
+          "password",
+          "username"
+        ],
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string"
+          }
+        }
+      },
+      "ChangePasswordDto": {
+        "required": [
+          "newPassword",
+          "oldPassword"
+        ],
+        "type": "object",
+        "properties": {
+          "oldPassword": {
+            "type": "string"
+          },
+          "newPassword": {
+            "type": "string"
+          }
+        }
+      },
+      "UpdateStatusRequest": {
+        "type": "object",
+        "properties": {
+          "isActive": {
+            "type": "boolean"
+          }
+        },
+        "description": "状态更新请求"
+      },
+      "UpdateLastExecTimeRequest": {
+        "type": "object",
+        "properties": {
+          "lastExecTime": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "ApiResponseVersionCheckResponse": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/VersionCheckResponse"
+          }
+        }
+      },
+      "VersionCheckResponse": {
+        "type": "object",
+        "properties": {
+          "currentVersion": {
+            "type": "string"
+          },
+          "latestVersion": {
+            "type": "string"
+          },
+          "hasUpdate": {
+            "type": "boolean"
+          },
+          "releaseUrl": {
+            "type": "string"
+          },
+          "releaseNotes": {
+            "type": "string"
+          },
+          "checkTime": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "prerelease": {
+            "type": "boolean"
+          },
+          "publishedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "error": {
+            "type": "string"
+          }
+        }
+      },
+      "ApiResponseListTaskConfigDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TaskConfigDto"
+            }
+          }
+        }
+      },
+      "ApiResponseTaskStructureCheckOverview": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/TaskStructureCheckOverview"
+          }
+        }
+      },
+      "DirectoryItem": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          }
+        }
+      },
+      "TaskStructureCheckOverview": {
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "taskName": {
+            "type": "string"
+          },
+          "libraryType": {
+            "type": "string"
+          },
+          "rootPath": {
+            "type": "string"
+          },
+          "expectedStructure": {
+            "type": "string"
+          },
+          "supported": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "rootFilesResult": {
+            "$ref": "#/components/schemas/TaskStructureCheckResult"
+          },
+          "directories": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DirectoryItem"
+            }
+          }
+        }
+      },
+      "ApiResponseDirectoryTree": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/DirectoryTree"
+          }
+        }
+      },
+      "DirectoryNode": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "mediaFile": {
+            "type": "boolean"
+          },
+          "videoFileCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "childrenLoaded": {
+            "type": "boolean"
+          },
+          "children": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DirectoryNode"
+            }
+          }
+        }
+      },
+      "DirectoryTree": {
+        "type": "object",
+        "properties": {
+          "taskId": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "taskName": {
+            "type": "string"
+          },
+          "libraryType": {
+            "type": "string"
+          },
+          "rootPath": {
+            "type": "string"
+          },
+          "tree": {
+            "$ref": "#/components/schemas/DirectoryNode"
+          }
+        }
+      },
+      "ApiResponseDirectoryNode": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/DirectoryNode"
+          }
+        }
+      },
+      "ApiResponseMapStringObject": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object"
+            }
+          }
+        }
+      },
+      "ApiResponseListOpenlistConfigDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OpenlistConfigDto"
+            }
+          }
+        }
+      },
+      "ApiResponseListView": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/View"
+            }
+          }
+        }
+      },
+      "ApiResponseListLibraryView": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LibraryView"
+            }
+          }
+        }
+      },
+      "LibraryView": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "collectionType": {
+            "type": "string"
+          },
+          "locations": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "ApiResponseListString": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "ApiResponseLogReadResponse": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/LogReadResponse"
+          }
+        }
+      },
+      "LogReadResponse": {
+        "type": "object",
+        "properties": {
+          "lines": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "cursor": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "fileKey": {
+            "type": "string"
+          },
+          "reset": {
+            "type": "boolean"
+          },
+          "hasMore": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ApiResponseObject": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "Bearer Authentication": {
+        "type": "http",
+        "description": "请在此处输入JWT token，格式：Bearer {token}",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  }
+}

@@ -14,6 +14,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -41,7 +42,7 @@ func run() error {
 	args := os.Args[1:]
 	command := "serve"
 	auto := len(args) == 0
-	if len(args) > 0 && args[0][0] != '-' {
+	if len(args) > 0 && len(args[0]) > 0 && args[0][0] != '-' {
 		command = args[0]
 		args = args[1:]
 	}
@@ -50,6 +51,9 @@ func run() error {
 	}
 	file := ""
 	for i, x := range args {
+		if strings.HasPrefix(x, "--config=") {
+			file = strings.TrimPrefix(x, "--config=")
+		}
 		if x == "--config" && i+1 < len(args) {
 			file = args[i+1]
 		}

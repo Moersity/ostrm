@@ -96,7 +96,7 @@ func (a *App) token(user string) (Object, error) {
 		return nil, e
 	}
 	_, e = a.Store.DB.Exec("INSERT INTO sessions(id,username,expires) VALUES(?,?,?)", id, user, expires.Unix())
-	return Object{"username": user, "token": t, "expiresAt": expires.UnixMilli()}, e
+	return Object{"username": user, "token": t, "expiresAt": expires.UTC().Format(time.RFC3339Nano)}, e
 }
 func (a *App) verify(token string) (*jwt.RegisteredClaims, error) {
 	c := &jwt.RegisteredClaims{}

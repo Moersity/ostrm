@@ -118,7 +118,7 @@ func (a *App) Handler() http.Handler {
 	})
 	handle("GET /api/auth/validate", func(r *http.Request) (any, error) {
 		c := r.Context().Value(claimsKey{}).(*jwt.RegisteredClaims)
-		return Object{"valid": true, "username": c.Subject, "expiresAt": c.ExpiresAt.UnixMilli(), "issuedAt": c.IssuedAt.UnixMilli()}, nil
+		return Object{"valid": true, "username": c.Subject, "expiresAt": c.ExpiresAt.Time.UTC().Format(time.RFC3339Nano), "issuedAt": c.IssuedAt.Time.UTC().Format(time.RFC3339Nano)}, nil
 	})
 	handle("POST /api/auth/refresh", func(r *http.Request) (any, error) {
 		c := r.Context().Value(claimsKey{}).(*jwt.RegisteredClaims)
@@ -333,6 +333,7 @@ func (a *App) Handler() http.Handler {
 	handle("GET /api/version/latest", func(r *http.Request) (any, error) { return a.checkVersion(r.Context(), false) })
 	handle("DELETE /api/version/cache/clear", func(r *http.Request) (any, error) { return "版本查询未使用持久缓存", nil })
 	a.registerMedia(handle)
+	a.registerTrash(handle)
 	a.registerManual(handle)
 	a.registerLogs(mux, handle)
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) { response(w, 404, 404, "接口不存在", nil) })
@@ -437,11 +438,25 @@ func (a *App) saveConfig(r *http.Request, kind string, id int64) (any, error) {
 			root = filepath.Join(a.Config.StrmRoot, safeName(str(m, "taskName")))
 		}
 		if !filepath.IsAbs(root) {
+			if !filepath.IsLocal(root) {
+				return nil, errors.New("相对输出路径不能越界")
+			}
 			root = filepath.Join(a.Config.StrmRoot, root)
 		}
 		root, e = filepath.Abs(root)
 		if e != nil {
 			return nil, e
+		}
+		root = canonicalRoot(root)
+		for _, protected := range []string{a.Config.DataDir, filepath.Join(a.Config.DataDir, "logs"), filepath.Join(a.Config.DataDir, "trash")} {
+			// The default STRM subtree is inside data-dir; protect its siblings and the data root itself.
+			if protected == a.Config.DataDir {
+				if pathsOverlap(root, protected) && !strings.HasPrefix(root, protected+string(os.PathSeparator)) {
+					return nil, errors.New("输出目录不能覆盖数据目录")
+				}
+			} else if pathsOverlap(root, protected) {
+				return nil, errors.New("输出目录与内部数据冲突")
+			}
 		}
 		m["strmPath"] = root
 		all, e := a.Store.List("tasks")
@@ -455,9 +470,7 @@ func (a *App) saveConfig(r *http.Request, kind string, id int64) (any, error) {
 			if strings.EqualFold(str(t, "taskName"), str(m, "taskName")) {
 				return nil, errors.New("任务名称已存在")
 			}
-			other := strings.ToLower(filepath.Clean(str(t, "strmPath")))
-			p := strings.ToLower(filepath.Clean(root))
-			if p == other || strings.HasPrefix(p, other+string(os.PathSeparator)) || strings.HasPrefix(other, p+string(os.PathSeparator)) {
+			if pathsOverlap(root, str(t, "strmPath")) {
 				return nil, errors.New("任务输出目录重叠")
 			}
 		}

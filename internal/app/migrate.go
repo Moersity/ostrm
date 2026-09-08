@@ -1,10 +1,12 @@
 package app
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/gofrs/flock"
 	"io"
 	"os"
 	"path/filepath"
@@ -22,7 +24,7 @@ func MigrateLegacy(source string, c Config, dry bool, w io.Writer) error {
 	if e = c.Resolve(); e != nil {
 		return e
 	}
-	if source == c.DataDir {
+	if pathsOverlap(source, c.DataDir) {
 		return errors.New("源目录和目标目录必须不同")
 	}
 	dbPath := filepath.Join(source, "db", "openlist2strm.db")
@@ -34,10 +36,15 @@ func MigrateLegacy(source string, c Config, dry bool, w io.Writer) error {
 		return e
 	}
 	defer old.Close()
+	oldTx, e := old.BeginTx(context.Background(), &sql.TxOptions{ReadOnly: true})
+	if e != nil {
+		return e
+	}
+	defer oldTx.Rollback()
 	report := Object{"source": source, "target": c.DataDir, "dryRun": dry, "tasksDisabled": true, "counts": Object{}, "warnings": []string{"旧任务时区默认 Asia/Shanghai；请核对后启用", "旧输出未认领，不会自动清理", "首次导入后请检查正则和 Cron"}}
 	data := map[string][]Object{}
 	for table, kind := range map[string]string{"openlist_config": "openlist", "task_config": "tasks", "media_server_config": "media"} {
-		rows, e := old.Query("SELECT * FROM " + table)
+		rows, e := oldTx.Query("SELECT * FROM " + table)
 		if e != nil {
 			if kind == "media" {
 				continue
@@ -92,14 +99,40 @@ func MigrateLegacy(source string, c Config, dry bool, w io.Writer) error {
 		rows.Close()
 		obj(report, "counts")[kind] = len(data[kind])
 	}
+	fingerprintData, _ := json.Marshal(data)
+	for _, file := range []string{"systemconf.json", "userInfo.json"} {
+		b, err := os.ReadFile(filepath.Join(source, "config", file))
+		if err == nil {
+			fingerprintData = append(fingerprintData, b...)
+		}
+	}
+	fingerprint := hashBytes(fingerprintData)
+	report["sourceFingerprint"] = fingerprint
 	if dry {
 		return json.NewEncoder(w).Encode(report)
 	}
+	lock := flock.New(filepath.Join(c.DataDir, "ostrm.lock"))
+	ok, e := lock.TryLock()
+	if e != nil {
+		return e
+	}
+	if !ok {
+		return errors.New("目标数据目录正在运行，请先停止程序")
+	}
+	defer lock.Close()
 	s, e := OpenStore(c.DataDir)
 	if e != nil {
 		return e
 	}
 	defer s.DB.Close()
+	prior, e := s.Setting("legacy-import", Object{})
+	if e != nil {
+		return e
+	}
+	if str(prior, "fingerprint") == fingerprint {
+		report["alreadyImported"] = true
+		return json.NewEncoder(w).Encode(report)
+	}
 	var count int
 	if e = s.DB.QueryRow("SELECT count(*) FROM records").Scan(&count); e != nil {
 		return e
@@ -154,6 +187,10 @@ func MigrateLegacy(source string, c Config, dry bool, w io.Writer) error {
 				return e
 			}
 		}
+	}
+	stamp, _ := json.Marshal(Object{"fingerprint": fingerprint, "source": source})
+	if _, e = tx.Exec("INSERT INTO settings(key,value) VALUES('legacy-import',?)", string(stamp)); e != nil {
+		return e
 	}
 	if e = tx.Commit(); e != nil {
 		return fmt.Errorf("迁移失败: %w", e)

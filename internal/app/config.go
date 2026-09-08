@@ -1,6 +1,8 @@
 package app
 
 import (
+	_ "embed"
+	"encoding/json"
 	"fmt"
 	"gopkg.in/yaml.v3"
 	"os"
@@ -65,12 +67,16 @@ func (c *Config) Resolve() error {
 	}
 	return nil
 }
+
+//go:embed defaults.json
+var defaultsJSON []byte
+
 func DefaultSettings() Object {
-	return Object{
-		"videoExtensions": []string{"mp4", "mkv", "avi", "mov", "wmv", "flv", "webm", "m4v", "ts", "m2ts", "iso", "rmvb", "rm", "mpg", "mpeg", "3gp", "vob"},
-		"tmdb":            Object{"apiKey": "", "baseUrl": "https://api.themoviedb.org", "imageBaseUrl": "https://image.tmdb.org", "language": "zh-CN", "region": "CN", "timeout": 30, "retryCount": 3, "posterSize": "w500", "backdropSize": "w1280"},
-		"scraping":        Object{"enabled": true, "nfoFormat": "kodi", "keepSubtitleFiles": false, "useExistingScrapingInfo": false},
-		"ai":              Object{"enabled": false, "baseUrl": "https://api.openai.com/v1", "apiKey": "", "model": "", "qpmLimit": 60},
-		"notifications":   Object{"enabled": false, "notifyOnSuccess": true, "notifyOnPartialSuccess": true, "notifyOnFailure": true, "includeFullPath": true, "maxDetailItems": 5, "serverUrl": "", "configKey": "ostrm", "tags": "all"},
-		"scrapingRegex":   Object{}, "log": Object{"retentionDays": 7, "level": "info", "reportUsageData": false}, "timezone": "Local"}
+	var m Object
+	if err := json.Unmarshal(defaultsJSON, &m); err != nil {
+		panic(err)
+	}
+	obj(m, "log")["reportUsageData"] = false
+	m["timezone"] = "Local"
+	return m
 }

@@ -30,6 +30,7 @@ jobs:
       - run: node build/frontend.mjs
         env:
           NUXT_PUBLIC_APP_VERSION: ${{ inputs.version || '3.0.0-dev' }}
+      - run: npm --prefix frontend run typecheck
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: frontend
@@ -67,6 +68,12 @@ jobs:
         run: go test -race ./...
       - run: node build/build.mjs ${{ matrix.os }}/${{ matrix.arch }}
       - run: node tests/packaging/smoke.mjs dist/ostrm_${{ env.OSTRM_VERSION }}_${{ matrix.os }}_${{ matrix.arch }}/ostrm${{ matrix.os == 'windows' && '.exe' || '' }}
+      - if: matrix.os == 'linux' && matrix.arch == 'amd64'
+        run: |
+          npm ci --prefix frontend
+          cd frontend
+          npx playwright install --with-deps chromium
+          OSTRM_BINARY="$GITHUB_WORKSPACE/dist/ostrm_${OSTRM_VERSION}_linux_amd64/ostrm" npx playwright test
       - if: matrix.os == 'linux'
         run: |
           go install github.com/goreleaser/nfpm/v2/cmd/nfpm@v2.47.0

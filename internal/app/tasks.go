@@ -141,6 +141,7 @@ func (a *App) execute(ctx context.Context, t, c, s, r Object) {
 			r["status"] = "PARTIAL_SUCCESS"
 		}
 	}
+	a.Log.Info("task finished", "taskId", num(t, "id"), "status", str(r, "status"), "processed", num(r, "processed"), "failed", num(r, "failed"))
 	r["completedAt"] = now()
 	r["progress"] = 100
 	r["stage"] = "FINALIZE"
@@ -188,12 +189,11 @@ func (a *App) executeFiles(ctx context.Context, t, c, s, r Object) error {
 	}
 	manifest, _ := a.Store.Get("manifest", num(t, "id"))
 	previous := obj(manifest, "entries")
-	ownedRec, e := a.Store.Get("owned", num(t, "id"))
+	owned, e := a.Store.Owned(num(t, "id"))
 	if e != nil {
-		ownedRec = Object{}
+		return e
 	}
-	owned := obj(ownedRec, "files")
-	entries := Object{}
+	entries := Object{str(t, "path"): "directory"}
 	dirs := map[string][]remoteFile{}
 	for _, f := range files {
 		b, _ := json.Marshal(f)
@@ -216,6 +216,7 @@ func (a *App) executeFiles(ctx context.Context, t, c, s, r Object) error {
 	reset := str(manifest, "fingerprint") != fingerprint || !boolean(t, "isIncrement", true)
 	desired := map[string]bool{}
 	sourceByOutput := map[string]string{}
+	eligible := map[string]bool{}
 	vids := []remoteFile{}
 	for _, f := range files {
 		if f.IsDir || !video(f.Name, s) {
@@ -238,6 +239,7 @@ func (a *App) executeFiles(ctx context.Context, t, c, s, r Object) error {
 		}
 		sourceByOutput[key] = f.Path
 		desired[dest] = true
+		eligible[f.Path] = true
 		vids = append(vids, f)
 	}
 	r["total"] = len(vids)
@@ -254,7 +256,7 @@ func (a *App) executeFiles(ctx context.Context, t, c, s, r Object) error {
 				return fmt.Errorf("输出已属于其他源文件: %s", rel)
 			}
 		}
-		ch, e := writeOutput(root, rel, b)
+		ch, e := a.ownedWrite(num(t, "id"), root, rel, source, b)
 		if e != nil {
 			return e
 		}
@@ -262,7 +264,7 @@ func (a *App) executeFiles(ctx context.Context, t, c, s, r Object) error {
 			r["changed"] = num(r, "changed") + 1
 		}
 		owned[rel] = Object{"source": source, "hash": hashBytes(b)}
-		_, e = a.Store.Save("owned", num(t, "id"), Object{"files": owned})
+
 		desired[rel] = true
 		return e
 	}
@@ -288,7 +290,9 @@ func (a *App) executeFiles(ctx context.Context, t, c, s, r Object) error {
 			r["skipped"] = num(r, "skipped") + 1
 		}
 		r["progress"] = ((i + 1) * 90) / max(1, len(vids))
-		a.updateRun(r)
+		if i%25 == 0 || i+1 == len(vids) {
+			a.updateRun(r)
+		}
 	}
 	if num(r, "failed") > 0 {
 		return nil
@@ -302,7 +306,7 @@ func (a *App) executeFiles(ctx context.Context, t, c, s, r Object) error {
 	for rel, v := range owned {
 		m, _ := v.(map[string]any)
 		src := str(m, "source")
-		if desired[rel] || entries[src] != nil && !strings.HasSuffix(strings.ToLower(rel), ".strm") {
+		if desired[rel] || entries[src] != nil && (!eligible[src] || !strings.HasSuffix(strings.ToLower(rel), ".strm")) {
 			continue
 		}
 		rr, e := os.OpenRoot(root)
@@ -313,6 +317,9 @@ func (a *App) executeFiles(ctx context.Context, t, c, s, r Object) error {
 		if os.IsNotExist(e) {
 			rr.Close()
 			delete(owned, rel)
+			if e = a.Store.Unown(num(t, "id"), rel); e != nil {
+				return e
+			}
 			continue
 		}
 		if e != nil {
@@ -328,17 +335,23 @@ func (a *App) executeFiles(ctx context.Context, t, c, s, r Object) error {
 			rr.Close()
 			return e
 		}
+		record, e := a.Store.Save("trash", 0, Object{"taskId": t["id"], "root": root, "path": rel, "trashPath": trash, "source": src, "hash": str(m, "hash"), "status": "ISOLATED", "expiresAt": time.Now().Add(7 * 24 * time.Hour).Unix()})
+		_ = record
+		if e != nil {
+			rr.Close()
+			return e
+		}
 		if e = rr.Remove(rel); e != nil {
 			rr.Close()
 			return e
 		}
 		rr.Close()
 		delete(owned, rel)
+		if e = a.Store.Unown(num(t, "id"), rel); e != nil {
+			return e
+		}
 		r["changed"] = num(r, "changed") + 1
 		r["cleaned"] = num(r, "cleaned") + 1
-	}
-	if _, e = a.Store.Save("owned", num(t, "id"), Object{"files": owned}); e != nil {
-		return e
 	}
 	_, e = a.Store.Save("manifest", num(t, "id"), Object{"entries": entries, "fingerprint": fingerprint})
 	return e

@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -84,6 +86,9 @@ func validURL(s string) error {
 	return nil
 }
 func (a *App) request(ctx context.Context, method, target string, headers map[string]string, body io.Reader) ([]byte, int, error) {
+	return a.requestClient(ctx, a.Client, method, target, headers, body)
+}
+func (a *App) requestClient(ctx context.Context, client *http.Client, method, target string, headers map[string]string, body io.Reader) ([]byte, int, error) {
 	if e := validURL(target); e != nil {
 		return nil, 0, e
 	}
@@ -94,7 +99,7 @@ func (a *App) request(ctx context.Context, method, target string, headers map[st
 	for k, v := range headers {
 		req.Header.Set(k, v)
 	}
-	resp, e := a.Client.Do(req)
+	resp, e := client.Do(req)
 	if e != nil {
 		return nil, 0, fmt.Errorf("外部服务请求失败 (%s)", errorKind(e))
 	}
@@ -107,7 +112,13 @@ func (a *App) request(ctx context.Context, method, target string, headers map[st
 		return nil, resp.StatusCode, errors.New("响应超过32MiB")
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, resp.StatusCode, fmt.Errorf("外部服务 HTTP %d", resp.StatusCode)
+		retry := time.Duration(0)
+		if sec, e := strconv.Atoi(resp.Header.Get("Retry-After")); e == nil {
+			retry = time.Duration(sec) * time.Second
+		} else if at, e := http.ParseTime(resp.Header.Get("Retry-After")); e == nil {
+			retry = time.Until(at)
+		}
+		return nil, resp.StatusCode, &externalError{status: resp.StatusCode, retryAfter: retry}
 	}
 	return b, resp.StatusCode, nil
 }
@@ -154,10 +165,18 @@ func (a *App) remote(ctx context.Context, c Object, endpoint string, payload Obj
 		if !readOnly || (status != 0 && status != 429 && status < 500) {
 			break
 		}
+		delay := time.Duration(i+1) * time.Second
+		var ee *externalError
+		if errors.As(e, &ee) && ee.retryAfter > delay {
+			delay = ee.retryAfter
+		}
+		if i+1 == tries {
+			break
+		}
 		select {
 		case <-ctx.Done():
 			return nil, ctx.Err()
-		case <-time.After(time.Duration(i+1) * time.Second):
+		case <-time.After(delay):
 		}
 	}
 	return nil, last
@@ -243,6 +262,7 @@ func (a *App) scan(ctx context.Context, c Object, root string) ([]remoteFile, er
 			return nil, errors.New("扫描条目超过100万")
 		}
 	}
+	sort.Slice(all, func(i, j int) bool { return all[i].Path < all[j].Path })
 	return all, ctx.Err()
 }
 func (a *App) download(ctx context.Context, c Object, f remoteFile) ([]byte, error) {
@@ -276,4 +296,48 @@ func (a *App) upload(ctx context.Context, c Object, p string, b []byte) error {
 		return errors.New("OpenList 上传失败")
 	}
 	return nil
+}
+
+type externalError struct {
+	status     int
+	retryAfter time.Duration
+}
+
+func (e *externalError) Error() string { return fmt.Sprintf("外部服务 HTTP %d", e.status) }
+func (a *App) configuredClient(c Object) (*http.Client, error) {
+	b, _ := json.Marshal(c)
+	key := hashBytes(b)
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if client := a.clients[key]; client != nil {
+		return client, nil
+	}
+	client := *a.Client
+	if n := num(c, "timeout"); n > 0 {
+		client.Timeout = time.Duration(n) * time.Second
+	}
+	if host := str(c, "proxyHost"); host != "" {
+		if !strings.Contains(host, "://") {
+			host = "http://" + host
+		}
+		u, e := url.Parse(host)
+		if e != nil {
+			return nil, e
+		}
+		if port := str(c, "proxyPort"); port != "" {
+			u.Host = u.Hostname() + ":" + port
+		}
+		if e = validURL(u.String()); e != nil {
+			return nil, e
+		}
+		transport, ok := a.Client.Transport.(*http.Transport)
+		if !ok {
+			return nil, errors.New("当前HTTP传输不支持代理")
+		}
+		copy := transport.Clone()
+		copy.Proxy = http.ProxyURL(u)
+		client.Transport = copy
+	}
+	a.clients[key] = &client
+	return &client, nil
 }
