@@ -73,7 +73,8 @@ jobs:
           if gh release view "$tag" --json isDraft --jq .isDraft > draft-state.txt 2>/dev/null; then
             if [ "$(cat draft-state.txt)" != true ]; then echo 'Release already published; assets are immutable'; exit 1; fi
           else
-            printf 'OStrm Go %s\n\nNative packages for macOS, Linux and Windows (amd64/arm64).\nPackages are unsigned and macOS packages are not notarized.\nSee README-GO.md and docs/rewrite for migration and compatibility details.\n' "$VERSION" > release-notes.md
+            printf 'OStrm Go %s\n\n' "$VERSION" > release-notes.md
+            cat RELEASE-NOTES.md >> release-notes.md
             gh release create "$tag" --target "$SHA" --draft --title "OStrm Go $VERSION" --notes-file release-notes.md
           fi
           # No clobber: a partial upload is reviewed rather than silently replaced.
