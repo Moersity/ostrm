@@ -83,6 +83,12 @@ def plan_release(event, releases, repo):
     return {"version": version, "sha": sha, "published": False, "previous": previous, "kind": kind}
 
 
+def release_by_tag(repo, tag):
+    # The tags endpoint excludes draft releases. List with authenticated access.
+    pages = gh_json("api", "--paginate", "--slurp", f"repos/{repo}/releases?per_page=100")
+    return next(release for page in pages for release in page if release["tag_name"] == tag)
+
+
 def publish(plan, releases, repo):
     tag, sha = "v" + plan["version"], plan["sha"]
     if command("git", "rev-parse", "HEAD") != sha:
@@ -105,7 +111,7 @@ def publish(plan, releases, repo):
         Path("release-notes.md").write_text(notes)
         command("gh", "release", "create", tag, "--repo", repo, "--target", sha,
                 "--draft", "--title", f"OStrm Go {plan['version']}", "--notes-file", "release-notes.md")
-    release = gh_json("api", f"repos/{repo}/releases/tags/{tag}")
+    release = release_by_tag(repo, tag)
     uploaded = {asset["name"]: asset for asset in release["assets"]}
     files = sorted(p for p in Path("dist").iterdir() if p.is_file())
     # Check every existing asset before uploading any missing one. No --clobber.
@@ -117,7 +123,7 @@ def publish(plan, releases, repo):
     for file in files:
         if file.name not in uploaded:
             command("gh", "release", "upload", tag, str(file), "--repo", repo)
-    final = gh_json("api", f"repos/{repo}/releases/tags/{tag}")
+    final = release_by_tag(repo, tag)
     if {a["name"] for a in final["assets"]} != {f.name for f in files}:
         raise ValueError("Release assets do not match the verified build")
     # No newer stable release may be replaced as latest by a retry.

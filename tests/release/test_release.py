@@ -75,6 +75,12 @@ class Planning(unittest.TestCase):
         with self.assertRaises(ValueError): r.plan_release(event, self.releases, 'owner/repo')
 
 class Publishing(unittest.TestCase):
+    def test_draft_lookup_uses_authenticated_list(self):
+        draft = dict(tag_name='v3.1.0', draft=True, assets=[])
+        with patch.object(r, 'gh_json', return_value=[[], [draft]]) as api:
+            self.assertEqual(r.release_by_tag('owner/repo', 'v3.1.0'), draft)
+            self.assertEqual(api.call_args.args, ('api', '--paginate', '--slurp', 'repos/owner/repo/releases?per_page=100'))
+
     def test_published_is_immutable(self):
         with patch.object(r, 'command', return_value='a'*40) as cmd:
             r.publish(dict(version='3.1.0', sha='a'*40), [dict(tag_name='v3.1.0', draft=False)], 'owner/repo')
