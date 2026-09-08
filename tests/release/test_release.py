@@ -75,11 +75,27 @@ class Planning(unittest.TestCase):
         with self.assertRaises(ValueError): r.plan_release(event, self.releases, 'owner/repo')
 
 class Publishing(unittest.TestCase):
-    def test_draft_lookup_uses_authenticated_list(self):
-        draft = dict(tag_name='v3.1.0', draft=True, assets=[])
-        with patch.object(r, 'gh_json', return_value=[[], [draft]]) as api:
-            self.assertEqual(r.release_by_tag('owner/repo', 'v3.1.0'), draft)
-            self.assertEqual(api.call_args.args, ('api', '--paginate', '--slurp', 'repos/owner/repo/releases?per_page=100'))
+    def test_create_upload_publish_by_id(self):
+        import hashlib
+        with tempfile.TemporaryDirectory() as tmp:
+            cwd = os.getcwd()
+            try:
+                os.chdir(tmp)
+                Path('dist').mkdir()
+                Path('dist/a.zip').write_bytes(b'installer')
+                Path('RELEASE-NOTES.md').write_text('Install instructions')
+                digest = 'sha256:' + hashlib.sha256(b'installer').hexdigest()
+                asset = dict(name='a.zip', digest=digest)
+                responses = [dict(body='Changes'), dict(id=123, assets=[]), asset, dict(assets=[asset]), dict(draft=False)]
+                with patch.object(r, 'command', return_value='a'*40), patch.object(r, 'gh_json', side_effect=responses) as api:
+                    r.publish(dict(version='3.1.0', sha='a'*40, previous='v3.0.0'), [], 'owner/repo')
+                    calls = [c.args for c in api.call_args_list]
+                    self.assertIn('https://uploads.github.com/repos/owner/repo/releases/123/assets?name=a.zip', calls[2])
+                    self.assertEqual(calls[3], ('api', 'repos/owner/repo/releases/123'))
+                    self.assertIn('repos/owner/repo/releases/123', calls[4])
+                    self.assertFalse(any('/tags/' in str(c) for c in calls))
+            finally:
+                os.chdir(cwd)
 
     def test_published_is_immutable(self):
         with patch.object(r, 'command', return_value='a'*40) as cmd:

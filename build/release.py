@@ -6,6 +6,7 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+from urllib.parse import quote
 
 STABLE = re.compile(r"^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
 SHA = re.compile(r"^[0-9a-f]{40}$")
@@ -83,12 +84,6 @@ def plan_release(event, releases, repo):
     return {"version": version, "sha": sha, "published": False, "previous": previous, "kind": kind}
 
 
-def release_by_tag(repo, tag):
-    # The tags endpoint excludes draft releases. List with authenticated access.
-    pages = gh_json("api", "--paginate", "--slurp", f"repos/{repo}/releases?per_page=100")
-    return next(release for page in pages for release in page if release["tag_name"] == tag)
-
-
 def publish(plan, releases, repo):
     tag, sha = "v" + plan["version"], plan["sha"]
     if command("git", "rev-parse", "HEAD") != sha:
@@ -108,10 +103,12 @@ def publish(plan, releases, repo):
             args += ["-f", f"previous_tag_name={plan['previous']}"]
         generated = gh_json(*args)
         notes = generated.get("body", "") + "\n\n" + Path("RELEASE-NOTES.md").read_text()
-        Path("release-notes.md").write_text(notes)
-        command("gh", "release", "create", tag, "--repo", repo, "--target", sha,
-                "--draft", "--title", f"OStrm Go {plan['version']}", "--notes-file", "release-notes.md")
-    release = release_by_tag(repo, tag)
+        existing = gh_json("api", "--method", "POST", f"repos/{repo}/releases",
+                           "-f", f"tag_name={tag}", "-f", f"target_commitish={sha}",
+                           "-F", "draft=true", "-f", f"name=OStrm Go {plan['version']}",
+                           "-f", f"body={notes}")
+    release = existing
+    release_path = f"repos/{repo}/releases/{release['id']}"
     uploaded = {asset["name"]: asset for asset in release["assets"]}
     files = sorted(p for p in Path("dist").iterdir() if p.is_file())
     # Check every existing asset before uploading any missing one. No --clobber.
@@ -122,8 +119,12 @@ def publish(plan, releases, repo):
                 raise ValueError(f"Draft asset differs: {file.name}; reuse original build artifacts")
     for file in files:
         if file.name not in uploaded:
-            command("gh", "release", "upload", tag, str(file), "--repo", repo)
-    final = release_by_tag(repo, tag)
+            asset = gh_json("api", "--method", "POST",
+                            f"https://uploads.github.com/{release_path}/assets?name={quote(file.name, safe='')}",
+                            "-H", "Content-Type: application/octet-stream", "--input", str(file))
+            if asset.get("digest") != "sha256:" + hashlib.sha256(file.read_bytes()).hexdigest():
+                raise ValueError(f"Uploaded asset checksum mismatch: {file.name}")
+    final = gh_json("api", release_path)
     if {a["name"] for a in final["assets"]} != {f.name for f in files}:
         raise ValueError("Release assets do not match the verified build")
     # No newer stable release may be replaced as latest by a retry.
@@ -131,7 +132,8 @@ def publish(plan, releases, repo):
               if not r["draft"] and not r["prerelease"] and version_tuple(r["tag_name"])]
     if latest and max(latest) >= version_tuple(tag):
         raise ValueError("A same or newer stable release already exists")
-    command("gh", "release", "edit", tag, "--repo", repo, "--draft=false", "--prerelease=false", "--latest")
+    gh_json("api", "--method", "PATCH", release_path, "-F", "draft=false",
+            "-F", "prerelease=false", "-f", "make_latest=true")
     print(f"Published {tag} at {sha}")
 
 
