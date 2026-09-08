@@ -50,7 +50,7 @@ export function getApiBaseUrl(): string {
   const config = useRuntimeConfig()
 
   // 直接使用配置的 API 基础路径
-  // 开发环境: http://localhost:8080/api
+  // 开发环境: http://127.0.0.1:3111/api
   // 生产环境: /api (相对路径，由 Nginx 代理)
   return config.public.apiBase as string
 }

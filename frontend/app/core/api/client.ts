@@ -260,7 +260,7 @@ export const authenticatedApiCall = async <T = any>(
 ): Promise<T> => {
   const { method = 'GET', body, headers } = options
 
-  // 确保 URL 以 /api 开头（Docker 生产环境需要）
+  // 确保 URL 以 /api 开头（Go 同源 API）
   const apiUrl = url.startsWith('/api') ? url : `/api${url.startsWith('/') ? url : '/' + url}`
 
   // 使用 $fetchApi，拦截器会自动添加 Authorization header
@@ -282,7 +282,7 @@ export const apiCall = async <T = any>(
 ): Promise<T> => {
   const { method = 'GET', body, headers } = options
 
-  // 确保 URL 以 /api 开头（Docker 生产环境需要）
+  // 确保 URL 以 /api 开头（Go 同源 API）
   const apiUrl = url.startsWith('/api') ? url : `/api${url.startsWith('/') ? url : '/' + url}`
 
   return await $fetch<T>(apiUrl, {

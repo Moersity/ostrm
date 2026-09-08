@@ -1,126 +1,52 @@
-> **Go 原生版本**：已实现内嵌网页、跨平台单文件运行和安装包，不需要 Docker/Java。参见 [Go 使用说明](README-GO.md)、[验证报告](docs/rewrite/progress.md) 与 [版本下载](https://github.com/Moersity/ostrm/releases)。下方保留上游原版说明。
+# OStrm Go
 
-<p align="center">
-  <img src="./assets/readme/hero.svg" width="100%" alt="OStrm 将 OpenList 影音目录转换为媒体库可直接使用的 STRM 文件">
-</p>
+Go 1.27.1 + SQLite + 内嵌 Nuxt 网页。不需要 Docker、Java、Node 或 Caddy 运行时。
 
-<p align="center">
-  <a href="https://github.com/hienao/ostrm/releases"><img src="https://img.shields.io/github/v/release/hienao/ostrm?style=flat-square&color=2563eb" alt="最新版本"></a>
-  <a href="https://hub.docker.com/r/hienao6/ostrm"><img src="https://img.shields.io/docker/pulls/hienao6/ostrm?style=flat-square&logo=docker&color=2563eb" alt="Docker 拉取次数"></a>
-  <a href="https://github.com/hienao/ostrm/stargazers"><img src="https://img.shields.io/github/stars/hienao/ostrm?style=flat-square&color=f59e0b" alt="GitHub Stars"></a>
-  <a href="https://github.com/hienao/ostrm/blob/main/LICENSE"><img src="https://img.shields.io/github/license/hienao/ostrm?style=flat-square&color=64748b" alt="GPL-3.0 许可证"></a>
-</p>
-
-<p align="center">
-  <a href="https://ostrm.51cloud.de/quick-start.html">快速开始</a>
-  ·
-  <a href="https://ostrm.51cloud.de/">完整文档</a>
-  ·
-  <a href="https://ostrm.51cloud.de/update-log.html">更新日志</a>
-  ·
-  <a href="https://t.me/ostrm6">加入 Telegram 群组</a>
-  ·
-  <a href="https://github.com/hienao/ostrm/issues">问题反馈</a>
-</p>
-
-## 这是什么
-
-OStrm 是一个面向 OpenList 影音库的自托管 Web 应用。它扫描远端目录，为视频生成轻量 `.strm` 文件，并可同步字幕、NFO、海报与背景图，让 Jellyfin、Emby 等媒体服务器无需搬运原始视频也能整理媒体库。
-
-- **自动生成**：按 OpenList 原有目录结构输出 STRM 文件
-- **智能整理**：可选 TMDB 刮削与 AI 文件名识别，补齐 NFO 和图片
-- **持续更新**：支持 Cron 定时、增量更新、全量更新与孤立文件清理
-- **媒体库联动**：任务完成后可通知 Emby 或 Jellyfin 刷新全部或指定媒体库
-- **结果通知**：通过 Apprise 将任务、手动刮削和媒体库刷新结果发送到多个渠道
-- **灵活适配**：支持 Base URL 替换、URL 编码控制和多个 OpenList 配置
-- **可视管理**：在 Web 界面创建任务、查看进度、筛选日志
-- **便于部署**：Docker Compose 一次启动，数据与输出目录持久化
-
-## 实际界面
-
-| OpenList 配置管理 | 编辑 OpenList 配置 |
-| --- | --- |
-| <img src="./docs/public/images/openlist-config-management.jpg" alt="OStrm OpenList 配置管理界面"> | <img src="./docs/public/images/openlist-config-form.jpg" alt="OStrm OpenList 配置完整表单"> |
-
-## 工作方式
-
-```text
-OpenList 影音目录
-      ↓ 扫描与过滤
-生成 .strm 文件
-      ↓ 可选处理
-字幕复制 · NFO/图片复用 · TMDB/AI 刮削
-      ↓
-Jellyfin / Emby 等媒体库
+```sh
+ostrm serve --listen 127.0.0.1:3111
 ```
 
-首次运行可执行全量生成；后续使用增量模式和 Cron 定时任务，只处理新增或变化的内容。媒体资料按“本地已有 → OpenList 同目录 → 在线刮削”的顺序获取，减少重复请求。
+打开 http://127.0.0.1:3111 注册管理员，添加 OpenList 配置和任务。无参数启动会打开浏览器。
+默认数据存储在系统用户数据目录；`--data-dir` 与 `--strm-root` 可覆盖，`--portable` 使用程序旁的 data 目录。
 
-## 快速开始
+构建（Node 24.19.0、Go 1.27.1）：
 
-准备一台已安装 Docker 的设备，以及一个可访问的 OpenList 服务。创建 `docker-compose.yml`：
-
-```yaml
-services:
-  ostrm:
-    image: hienao6/ostrm:latest
-    container_name: ostrm
-    ports:
-      - "3111:80"
-    volumes:
-      - ./data/config:/maindata/config
-      - ./data/db:/maindata/db
-      - ./logs:/maindata/log
-      - ./strm:/app/backend/strm
-    restart: always
+```sh
+node build/frontend.mjs
+go test -race ./...
+node build/build.mjs
 ```
 
-启动服务：
+`ostrm backup --output /path/to/backup.db` 创建一致性 SQLite 备份。
+旧版迁移先停止旧程序，使用 `ostrm migrate-legacy --source /old/maindata --data-dir /new/data --dry-run` 预览，再去掉 dry-run。
+迁移任务默认停用；导入不认领或删除原有输出文件。
 
-```bash
-docker compose up -d
-```
+可选后台服务：以适当权限执行 `ostrm service install --data-dir <固定数据目录>`，随后 `ostrm service start`；卸载服务使用 `ostrm service uninstall`。
+Windows 服务使用独立账户环境，请勿依赖交互用户的映射盘符。
 
-打开 [http://localhost:3111](http://localhost:3111)，注册账号并完成：
+外部集成包括 TMDB、兼容 Chat Completions 的 AI、Emby/Jellyfin 和 Apprise HTTP。不配置时核心 STRM 生成仍可使用。
+远端重命名/上传仅由手动整理或显式自动重命名开关触发。失败的远端写入如结果不明确会停止重试，避免重复修改。
 
-1. 添加 OpenList 配置并测试连接。
-2. 创建转换任务，选择源目录和 STRM 输出路径。
-3. 首次执行全量生成，日常任务切换为增量更新。
+无变化增量保留 STRM mtime；仅清理本程序记录拥有且未被用户修改的输出，放入数据目录 trash。
+未签名安装包可能显示操作系统安全提示；是否签名和公证以 release 说明为准。
 
-更完整的部署、升级和故障排查步骤请查看[快速开始指南](https://ostrm.51cloud.de/quick-start.html)。
+GPL-3.0-or-later。基于 hienao/ostrm 的前端及业务行为重写，原版权和 LICENSE 保留。
+开发与发布流程详见 [开发指南](docs/development.md)，内部结构见 [架构说明](docs/architecture.md)。
 
-## 可选能力
+## 电影目录与多画质片源
 
-| 能力 | 用途 | 配置指南 |
-| --- | --- | --- |
-| TMDB / AI 刮削 | 规范媒体名称，生成 NFO、海报和背景图 | [AI 识别配置](https://ostrm.51cloud.de/ai-recognition-config.html) |
-| STRM Base URL | 为媒体服务器改写 STRM 中的访问地址 | [Base URL 配置](https://ostrm.51cloud.de/strm-base-url-config.html) |
-| URL 编码控制 | 处理中文路径、空格和特殊字符 | [URL 编码配置](https://ostrm.51cloud.de/url-encoding-config.html) |
-| Emby / Jellyfin 刷新 | STRM 生成后刷新全部媒体库，或按媒体库 ID 精确刷新 | 在“系统设置”添加服务器，再在任务中选择刷新范围 |
-| Apprise 通知 | 推送任务与手动刮削终态、失败分类和完整路径 | 在“系统设置 → 任务通知”中配置 |
-| 日志与排错 | 查看任务处理链和失败原因 | [日志说明](https://ostrm.51cloud.de/log.html) |
+电影支持根目录和任意层级子目录。默认标准化 STRM 名称并只选同片最佳画质，可在任务中预览保留／过滤结果或选择保留所有版本；不删除 OpenList 原视频。详见 [电影目录、识别与画质筛选](docs/movie-library.md)。
 
-## 技术组成
+## 下载与目录
 
-```text
-Nuxt 3 + Vue 3 + Tailwind CSS
-              ↓
-Spring Boot + MyBatis + Quartz
-              ↓
-       SQLite + 文件系统
-```
+正式安装包见 [GitHub Releases](https://github.com/Moersity/ostrm/releases)。`dev` 的变更需经过 beta → main 发布后才进入正式版。
 
-运行环境使用 Java 21，生产镜像由 Docker 多阶段构建并通过 Caddy 提供 Web 服务。开发环境和目录结构请参阅[参与开发](https://ostrm.51cloud.de/dev.html)。
+- `cmd/ostrm`：CLI 和服务入口。
+- `internal/app`：Go API、SQLite、任务、刮削及迁移。
+- `internal/web`：内嵌前端资源。
+- `frontend`：Nuxt 网页源码与浏览器测试。
+- `build`、`packaging`、`tests/packaging`：构建和原生安装验证。
+- `.github/workflows`：Go CI 与 Release。
+- `docs`：当前功能和开发说明。
 
-## 文档与支持
-
-- [完整文档](https://ostrm.51cloud.de/)
-- [常见问题](https://ostrm.51cloud.de/faq.html)
-- [版本更新记录](https://ostrm.51cloud.de/update-log.html)
-- [加入 Telegram 群组（@ostrm6）](https://t.me/ostrm6)
-- [提交 Issue](https://github.com/hienao/ostrm/issues)
-- [参与贡献](https://ostrm.51cloud.de/dev.html)
-
-## 许可证
-
-本项目采用 [GNU General Public License v3.0](./LICENSE)。你可以使用、修改和分发本项目；衍生作品需要继续采用相同许可证，并保留版权与变更说明。本项目不提供任何担保。
+原 Java 实现及历史设计可在 Git 历史中查阅；当前源码树只使用 Go 原生架构。

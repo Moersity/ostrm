@@ -1,5 +1,0 @@
-id: add-podman-script
-title: 添加 Podman 启动脚本
-description: 创建 dev-podman.sh 脚本，替代 dev-docker.sh 以支持使用 Podman 启动项目
-status: draft
-created: 2026-02-28
