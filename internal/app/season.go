@@ -18,14 +18,15 @@ func seasonNumber(s string) int {
 	digits := map[rune]int{'零': 0, '〇': 0, '一': 1, '二': 2, '两': 2, '三': 3, '四': 4, '五': 5, '六': 6, '七': 7, '八': 8, '九': 9}
 	total, current := 0, 0
 	for _, r := range s {
-		if r == '百' {
-			return -1
-		}
-		if r == '十' {
+		if r == '百' || r == '十' {
 			if current == 0 {
 				current = 1
 			}
-			total += current * 10
+			unit := 10
+			if r == '百' {
+				unit = 100
+			}
+			total += current * unit
 			current = 0
 		} else if n, ok := digits[r]; ok {
 			current = n

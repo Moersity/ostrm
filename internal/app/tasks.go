@@ -200,7 +200,7 @@ func (a *App) executeFiles(ctx context.Context, t, c, s, r Object) error {
 		entries[f.Path] = hashBytes(b)
 		dirs[path.Dir(f.Path)] = append(dirs[path.Dir(f.Path)], f)
 	}
-	fp, _ := json.Marshal(Object{"movieOutputVersion": 1, "task": Object{"movieVersions": t["movieVersions"], "movieNaming": t["movieNaming"], "skipMovieExtras": t["skipMovieExtras"], "path": t["path"], "strmPath": t["strmPath"], "renameRegex": t["renameRegex"], "libraryType": t["libraryType"], "needScrap": t["needScrap"], "skipInvalidStructure": t["skipInvalidStructure"]}, "openlist": c, "system": s})
+	fp, _ := json.Marshal(Object{"movieOutputVersion": 1, "recognitionVersion": 2, "task": Object{"movieVersions": t["movieVersions"], "movieNaming": t["movieNaming"], "skipMovieExtras": t["skipMovieExtras"], "path": t["path"], "strmPath": t["strmPath"], "renameRegex": t["renameRegex"], "libraryType": t["libraryType"], "needScrap": t["needScrap"], "skipInvalidStructure": t["skipInvalidStructure"]}, "openlist": c, "system": s})
 	fingerprint := hashBytes(fp)
 	changedDirs := map[string]bool{}
 	for p, h := range entries {
