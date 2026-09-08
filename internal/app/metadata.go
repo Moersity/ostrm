@@ -21,7 +21,7 @@ import (
 var seasonRE = regexp.MustCompile(`(?i)^(?:season\s*|s)(\d+)$|^第(\d+)季$`)
 var episodeRE = regexp.MustCompile(`(?i)S(\d{1,2})[ ._-]*E(\d{1,3})|(?:^|[^a-z])E(?:P)?[ ._-]*(\d{1,3})|第(\d+)集`)
 var yearRE = regexp.MustCompile(`(?:19|20)\d{2}`)
-var tmdbIDRE = regexp.MustCompile(`(?i)tmdb(?:id)?[= :_-]*(\d+)`)
+var tmdbIDRE = regexp.MustCompile(`(?i)\btmdb(?:id)?[= :_-]*(\d+)\b`)
 
 func structureReason(rel, typ string) string {
 	parts := strings.Split(rel, "/")
@@ -29,9 +29,8 @@ func structureReason(rel, typ string) string {
 	case "auto", "":
 		return "自动识别任务没有固定目录结构，请先选择明确的媒体库类型"
 	case "movie":
-		if len(parts) != 2 {
-			return "应使用电影目录/视频文件结构"
-		}
+		// Movies may be flat or nested under any number of collection folders.
+		return ""
 	case "tv":
 		if len(parts) != 3 || !isSeasonDirectory(parts[1]) {
 			return "应使用剧名/Season 01/视频文件结构"
@@ -138,18 +137,26 @@ func (a *App) recognize(ctx context.Context, s Object, filename, typ, title, yea
 		}
 	}
 	if title == "" {
-		title = strings.TrimSuffix(path.Base(filename), path.Ext(filename))
-		if isSeasonDirectory(title) {
-			title = path.Base(path.Dir(filename))
+		if typ == "movie" {
+			info := parseMovieName(path.Base(filename), video(path.Base(filename), s))
+			title = info.Title
+			if year == "" {
+				year = info.Year
+			}
+		} else {
+			title = strings.TrimSuffix(path.Base(filename), path.Ext(filename))
+			if isSeasonDirectory(title) {
+				title = path.Base(path.Dir(filename))
+			}
+			if year == "" {
+				year = yearRE.FindString(title)
+			}
+			title = tmdbIDRE.ReplaceAllString(title, "")
+			if i := strings.Index(title, year); year != "" && i >= 0 {
+				title = title[:i]
+			}
+			title = strings.Trim(strings.ReplaceAll(title, ".", " "), " [](){}_- ")
 		}
-		if year == "" {
-			year = yearRE.FindString(title)
-		}
-		title = tmdbIDRE.ReplaceAllString(title, "")
-		if i := strings.Index(title, year); year != "" && i >= 0 {
-			title = title[:i]
-		}
-		title = strings.Trim(strings.ReplaceAll(title, ".", " "), " [](){}_- ")
 		if id == 0 && boolean(obj(s, "ai"), "enabled", false) {
 			m, e := a.ai(ctx, obj(s, "ai"), filename)
 			if e == nil {
@@ -172,13 +179,20 @@ func (a *App) recognize(ctx context.Context, s Object, filename, typ, title, yea
 		}
 		match := capturePatterns(obj(s, "scrapingRegex")[key], path.Base(filename))
 		if v := str(match, "title"); v != "" {
-			title = v
+			if typ == "movie" {
+				title = parseMovieName(v, false).Title
+			} else {
+				title = v
+			}
 		}
 		if v := str(match, "year"); v != "" {
 			year = v
 		}
 	}
 	if id == 0 {
+		if typ == "movie" && !usefulMovieTitle(title) {
+			return nil, errors.New("无法从文件或电影目录识别片名，请提供片名、年份或 TMDB ID")
+		}
 		q := url.Values{"query": {title}}
 		if year != "" {
 			key := "year"
@@ -192,11 +206,33 @@ func (a *App) recognize(ctx context.Context, s Object, filename, typ, title, yea
 			return nil, e
 		}
 		rs, _ := m["results"].([]any)
+		if typ == "movie" && len(rs) == 0 {
+			for _, alternative := range movieSearchTitles(title)[1:] {
+				q.Set("query", alternative)
+				m, e = a.tmdb(ctx, s, "/search/movie", q)
+				if e != nil {
+					return nil, e
+				}
+				rs, _ = m["results"].([]any)
+				if len(rs) > 0 {
+					break
+				}
+			}
+		}
 		if len(rs) == 0 {
 			return nil, errors.New("TMDB 未匹配到媒体")
 		}
 		candidate, _ := rs[0].(map[string]any)
 		id = num(candidate, "id")
+		if typ == "movie" {
+			id, e = selectMovieResult(rs, title, year)
+			if e != nil {
+				return nil, e
+			}
+		}
+		if id <= 0 {
+			return nil, errors.New("TMDB 返回无效媒体 ID")
+		}
 	}
 	m, e := a.tmdb(ctx, s, "/"+typ+"/"+strconv.FormatInt(id, 10), nil)
 	if e != nil {
@@ -396,6 +432,14 @@ func (a *App) processMetadata(ctx context.Context, t, c, s Object, f remoteFile,
 	}
 	localDir := filepath.Dir(dest)
 	base := strings.TrimSuffix(f.Name, path.Ext(f.Name))
+	movie := str(t, "libraryType") == "movie"
+	videoCount := 0
+	for _, sibling := range siblings {
+		if !sibling.IsDir && video(sibling.Name, s) && !movieExtra(sibling.Name) {
+			videoCount++
+		}
+	}
+	outputBase := strings.TrimSuffix(filepath.Base(dest), ".strm")
 	hasNFO := false
 	for _, asset := range siblings {
 		if asset.IsDir {
@@ -407,14 +451,34 @@ func (a *App) processMetadata(ctx context.Context, t, c, s Object, f remoteFile,
 		if !(isSub && boolean(opts, "keepSubtitleFiles", false) || isInfo && boolean(opts, "useExistingScrapingInfo", false)) {
 			continue
 		}
-		if isSub && !strings.HasPrefix(asset.Name, base) {
+		if isSub && !strings.HasPrefix(asset.Name, base+".") {
 			continue
 		}
+		if movie && isInfo {
+			matched := strings.HasPrefix(asset.Name, base+".") || strings.HasPrefix(asset.Name, base+"-")
+			generic := asset.Name == "movie.nfo" || asset.Name == "poster.jpg" || asset.Name == "fanart.jpg" || asset.Name == "poster.png" || asset.Name == "fanart.png"
+			if !matched && !(videoCount == 1 && generic) {
+				continue
+			}
+		}
 		name := asset.Name
+		if movie {
+			switch {
+			case asset.Name == "movie.nfo":
+				name = outputBase + ".nfo"
+			case strings.HasPrefix(asset.Name, base+"-"):
+				name = outputBase + strings.TrimPrefix(asset.Name, base)
+			case strings.HasPrefix(asset.Name, "poster.") || strings.HasPrefix(asset.Name, "fanart."):
+				name = outputBase + "-" + asset.Name
+			}
+		}
 		if strings.HasPrefix(name, base+".") {
 			name = strings.TrimSuffix(filepath.Base(dest), ".strm") + strings.TrimPrefix(name, base)
 		}
 		rel := filepath.Join(localDir, safeName(name))
+		if movie && strings.HasPrefix(name, outputBase) {
+			rel = filepath.Join(localDir, outputBase+safeName(strings.TrimPrefix(name, outputBase)))
+		}
 		if ext == ".nfo" && (asset.Name == base+".nfo" || asset.Name == "movie.nfo" || asset.Name == "tvshow.nfo") {
 			hasNFO = true
 		}
@@ -426,7 +490,7 @@ func (a *App) processMetadata(ctx context.Context, t, c, s Object, f remoteFile,
 			return e
 		}
 		source := f.Path
-		if !strings.HasPrefix(asset.Name, base+".") {
+		if !movie && !strings.HasPrefix(asset.Name, base+".") {
 			source = path.Dir(f.Path)
 		}
 		if e = write(rel, source, b); e != nil {
@@ -438,6 +502,34 @@ func (a *App) processMetadata(ctx context.Context, t, c, s Object, f remoteFile,
 			hasNFO = true
 		}
 		if hasNFO {
+			// A quality upgrade changes only the video source. Existing metadata
+			// for the same film may be retained, but subtitles are version-specific.
+			if movie {
+				owned, err := a.Store.Owned(num(t, "id"))
+				if err != nil {
+					return err
+				}
+				stem := strings.TrimSuffix(dest, ".strm")
+				for _, suffix := range []string{".nfo", "-poster.jpg", "-poster.png", "-fanart.jpg", "-fanart.png"} {
+					rel := stem + suffix
+					old := obj(owned, rel)
+					if str(old, "source") == f.Path || !canReplaceMovieSource(t, str(old, "source"), f.Path) {
+						continue
+					}
+					rr, err := os.OpenRoot(str(t, "strmPath"))
+					if err != nil {
+						return err
+					}
+					data, err := rr.ReadFile(rel)
+					rr.Close()
+					if err != nil || hashBytes(data) != str(old, "hash") {
+						continue
+					}
+					if err = write(rel, f.Path, data); err != nil {
+						return err
+					}
+				}
+			}
 			return nil
 		}
 	}
@@ -452,7 +544,14 @@ func (a *App) processMetadata(ctx context.Context, t, c, s Object, f remoteFile,
 			typ = "tv"
 		}
 	}
-	m, e := a.recognize(ctx, s, identity, typ, "", "", 0)
+	title, year, id := "", "", int64(0)
+	if typ == "movie" || typ == "auto" || typ == "" {
+		typ = "movie"
+		info := identifyMovie(str(t, "path"), f.Path)
+		year, id = info.Year, info.ID
+		identity = movieLabel(info)
+	}
+	m, e := a.recognize(ctx, s, identity, typ, title, year, id)
 	if e != nil {
 		return e
 	}
@@ -465,11 +564,14 @@ func (a *App) processMetadata(ctx context.Context, t, c, s Object, f remoteFile,
 		if name == strings.TrimSuffix(f.Name, path.Ext(f.Name))+".nfo" {
 			rel = strings.TrimSuffix(dest, ".strm") + ".nfo"
 		}
+		if movie && (name == "poster.jpg" || name == "fanart.jpg") {
+			rel = filepath.Join(localDir, outputBase+"-"+name)
+		}
 		if name == "tvshow.nfo" && isSeasonDirectory(filepath.Base(localDir)) {
 			rel = filepath.Join(filepath.Dir(localDir), name)
 		}
 		source := f.Path
-		if name == "poster.jpg" || name == "fanart.jpg" || name == "tvshow.nfo" {
+		if !movie && (name == "poster.jpg" || name == "fanart.jpg" || name == "tvshow.nfo") {
 			source = path.Dir(f.Path)
 		}
 		if e = write(rel, source, b); e != nil {

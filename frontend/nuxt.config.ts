@@ -38,28 +38,21 @@ export default defineNuxtConfig({
   // 自动导入配置
   imports: {
     dirs: [
-      'core/composables/**',
-      'core/utils/**',
-      'modules/*/composables/**',
-      'modules/*/services/**'
+      'core/utils/**'
     ]
   },
 
   // 组件扫描配置
   components: {
     dirs: [
-      'core/ui',
-      'components',
-      'modules/*/components',
-      'modules/shared/components'
+      'components'
     ]
   },
 
   // Pinia 配置
   pinia: {
     storesDirs: [
-      'core/stores/**',
-      'modules/*/stores/**'
+      'core/stores/**'
     ]
   },
 
@@ -69,7 +62,7 @@ export default defineNuxtConfig({
       routes: ['/auth/login', '/auth/register']
     },
     devProxy: {
-      '/api': 'http://localhost:8080/api'
+      '/api': 'http://127.0.0.1:3111/api'
     },
     routeRules: {
       '/**': {

@@ -108,6 +108,7 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v3m0 12v3M3 12h3m12 0h3M5.64 5.64l2.12 2.12m8.48 8.48 2.12 2.12m0-12.72-2.12 2.12m-8.48 8.48-2.12 2.12M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
                 </button>
+                <button v-if="task.libraryType === 'movie'" class="text-xs text-blue-300" @click="previewMovieVersions(task)" :disabled="moviePreviewLoading">画质筛选预览</button>
                 <button class="btn-icon" @click="editTask(task)" title="编辑">
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
@@ -347,6 +348,24 @@
                 </div>
               </div>
 
+              <div v-if="taskForm.libraryType === 'movie'" class="space-y-3">
+                <label class="block text-sm text-white/70">电影 STRM 命名
+                  <select v-model="taskForm.movieNaming" class="input-field mt-2">
+                    <option value="smart">标准片名目录／片名（年份）.strm（推荐）</option>
+                    <option value="original">保留源目录和文件名</option>
+                  </select>
+                </label>
+                <p class="text-xs text-white/50">支持根目录和任意层级子目录中的电影。识别片名、年份及 TMDB ID，标准命名只整理本地 STRM。自定义重命名正则优先；启用刮削后生成同名 NFO，提高媒体库匹配准确度。</p>
+                <label class="block text-sm text-white/70">同一电影的多个片源
+                  <select v-model="taskForm.movieVersions" class="input-field mt-2">
+                    <option value="best">只生成最佳画质版本（推荐）</option>
+                    <option value="all">保留所有版本</option>
+                  </select>
+                </label>
+                <p class="text-xs text-white/50">按分辨率、HDR、片源、编码、文件大小依次比较；独立剪辑版与 CD 分段保留。只过滤 STRM，OpenList 原视频保留；程序拥有的旧重复输出移入隔离区。</p>
+                <label class="flex items-start gap-2 text-sm text-white/70"><input v-model="taskForm.skipMovieExtras" type="checkbox" class="mt-1">跳过 sample、预告片、花絮目录和对应文件</label>
+              </div>
+
               <div class="space-y-3">
                 <label class="mb-3 flex items-start gap-2 text-sm text-amber-200"><input v-model="taskForm.autoRenameMedia" type="checkbox" class="mt-1">自动整理远端媒体（会重命名 OpenList 中的目录和文件，默认关闭）</label>
                 <label class="flex items-start cursor-pointer">
@@ -370,7 +389,7 @@
                   <span class="ml-2 text-sm text-white/70">
                     跳过目录结构不符合的视频
                     <span class="block text-xs text-white/40 mt-0.5">
-                      执行时跳过异常目录；已有输出保留，避免过滤设置变化造成误删
+                      电影支持任意层级；剧集仍检查剧名和季目录。被过滤的视频已有输出保留
                     </span>
                   </span>
                 </label>
@@ -608,6 +627,24 @@
         </div>
       </div>
     </Teleport>
+    <Teleport to="body">
+      <div v-if="showMoviePreview" class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" @click.self="showMoviePreview = false">
+        <div class="w-full max-w-3xl max-h-[85vh] overflow-auto rounded-2xl border border-white/10 bg-slate-900 p-6 text-white">
+          <h3 class="text-lg font-semibold">电影画质筛选预览</h3>
+          <p class="mt-2 text-sm text-white/60">按已保存的任务设置扫描。预览不会生成 STRM 或修改原视频。</p>
+          <p v-if="moviePreviewLoading" class="mt-4">正在递归扫描电影目录…</p>
+          <p v-else-if="moviePreviewError" class="mt-4 text-red-300">{{ moviePreviewError }}</p>
+          <template v-else-if="moviePreview">
+            <p class="my-4">共 {{ moviePreview.videoCount }} 个视频，保留 {{ moviePreview.selectedCount }} 个，过滤 {{ moviePreview.filteredCount }} 个。</p>
+            <div v-for="item in moviePreview.selections" :key="item.filtered" class="mb-3 rounded-lg bg-white/5 p-3 text-sm break-all">
+              <p class="text-emerald-300">保留：{{ item.kept }}</p>
+              <p class="mt-1 text-white/50">过滤：{{ item.filtered }}</p>
+            </div>
+          </template>
+          <button class="btn-secondary mt-4" @click="showMoviePreview = false">关闭</button>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -617,6 +654,27 @@ import TaskStructureTreeNode from '~/components/TaskStructureTreeNode.vue'
 import logger from '~/core/utils/logger'
 import { useRoute, useRouter } from 'vue-router'
 import { apiCall, authenticatedApiCall } from '~/core/api/client'
+
+const showMoviePreview = ref(false)
+const moviePreviewLoading = ref(false)
+const moviePreview = ref(null)
+const moviePreviewError = ref('')
+const previewMovieVersions = async (task) => {
+  showMoviePreview.value = true
+  moviePreviewLoading.value = true
+  moviePreview.value = null
+  moviePreviewError.value = ''
+  try {
+    const response = await authenticatedApiCall(`/task-config/${task.id}/movie-versions/preview`)
+    if (response.code !== 200) throw new Error(response.message || '画质预览失败')
+    moviePreview.value = response.data
+  } catch (error) {
+    moviePreviewError.value = error.message || '画质预览失败'
+  } finally {
+    moviePreviewLoading.value = false
+  }
+}
+
 
 const route = useRoute()
 const router = useRouter()
@@ -650,7 +708,7 @@ const taskForm = ref({
   strmPath: '',
   cron: '',
   autoRenameMedia: false, needScrap: false,
-  skipInvalidStructure: false,
+  skipInvalidStructure: false, movieNaming: 'smart', movieVersions: 'best', skipMovieExtras: true,
   renameRegex: '',
   mediaServerConfigId: null,
   mediaRefreshScope: 'NONE',
@@ -755,7 +813,7 @@ const onMediaLibraryChange = () => {
 const resetTaskForm = () => {
   taskForm.value = {
     taskName: '', path: '', strmPath: '', cron: '',
-    libraryType: '', autoRenameMedia: false, needScrap: false, skipInvalidStructure: false,
+    libraryType: '', autoRenameMedia: false, needScrap: false, skipInvalidStructure: false, movieNaming: 'smart', movieVersions: 'best', skipMovieExtras: true,
     renameRegex: '', mediaServerConfigId: null, mediaRefreshScope: 'NONE', mediaLibraryId: '',
     mediaLibraryName: '', isIncrement: true, isActive: true
   }
@@ -769,6 +827,7 @@ const editTask = (task) => {
     taskName: task.taskName, path: task.path, strmPath: task.strmPath,
     libraryType: task.libraryType || 'auto', cron: task.cron || '', autoRenameMedia: task.autoRenameMedia || false, needScrap: task.needScrap || false,
     skipInvalidStructure: task.libraryType && task.libraryType !== 'auto' ? task.skipInvalidStructure || false : false,
+    movieNaming: task.movieNaming || 'smart', movieVersions: task.movieVersions || 'best', skipMovieExtras: task.skipMovieExtras !== false,
     renameRegex: task.renameRegex || '', mediaServerConfigId: task.mediaServerConfigId || null,
     mediaRefreshScope: task.mediaRefreshScope || 'NONE', mediaLibraryId: task.mediaLibraryId || '',
     mediaLibraryName: task.mediaLibraryName || '', isIncrement: task.isIncrement, isActive: task.isActive

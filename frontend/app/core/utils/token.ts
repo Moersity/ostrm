@@ -37,7 +37,7 @@ export function getCookieConfig(maxAge: number = 60 * 60 * 24): CookieConfig {
   return {
     default: () => null,
     maxAge: maxAge,
-    secure: false, // Docker环境中使用HTTP，设为false
+    secure: false, // 本地 HTTP 服务使用非 Secure Cookie
     sameSite: 'lax', // 使用lax策略，兼容性更好
     httpOnly: false, // 客户端需要访问
     path: '/' // 明确设置路径

@@ -324,8 +324,8 @@ func TestStructureAndRegex(t *testing.T) {
 	if structureReason("Show/Season 01/file.mkv", "tv") != "" {
 		t.Fatal("tv rejected")
 	}
-	if structureReason("file.mkv", "movie") == "" {
-		t.Fatal("flat movie accepted")
+	if structureReason("file.mkv", "movie") != "" {
+		t.Fatal("flat movie rejected")
 	}
 	got, e := renameFile("movie [test].mkv", `\s*\[.*?\]|`)
 	if e != nil || got != "movie.strm" {
