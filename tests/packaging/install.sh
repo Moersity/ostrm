@@ -11,7 +11,12 @@ if [[ "$OSTYPE" == darwin* ]]; then
   sudo /Applications/OStrm.app/Contents/MacOS/ostrm service install --listen 127.0.0.1:31117 --data-dir "$OSTRM_SMOKE_DATA-service"
   sudo /Applications/OStrm.app/Contents/MacOS/ostrm service start
   for i in {1..30}; do if curl --fail --silent http://127.0.0.1:31117/health >/dev/null; then break; fi; sleep 1; done
-  curl --fail http://127.0.0.1:31117/health
+  if ! curl --fail http://127.0.0.1:31117/health; then
+    sudo launchctl print system/ostrm || true
+    sudo cat /var/log/ostrm.err.log /var/log/ostrm.out.log || true
+    sudo cat /Library/LaunchDaemons/ostrm.plist || true
+    exit 1
+  fi
   sudo /Applications/OStrm.app/Contents/MacOS/ostrm service stop
   sudo /Applications/OStrm.app/Contents/MacOS/ostrm service uninstall
   sudo rm -rf /Applications/OStrm.app

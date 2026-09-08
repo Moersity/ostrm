@@ -18,14 +18,14 @@ type Config struct {
 }
 
 func LoadConfig(file string) (Config, error) {
-	home, e := os.UserHomeDir()
-	if e != nil {
-		return Config{}, e
+	home, _ := os.UserHomeDir()
+	dir := ""
+	if home != "" {
+		dir = filepath.Join(home, ".local", "share", "ostrm")
 	}
-	dir := filepath.Join(home, ".local", "share", "ostrm")
 	if runtime.GOOS == "windows" {
 		dir = filepath.Join(os.Getenv("LOCALAPPDATA"), "OStrm")
-	} else if runtime.GOOS == "darwin" {
+	} else if runtime.GOOS == "darwin" && home != "" {
 		dir = filepath.Join(home, "Library", "Application Support", "OStrm")
 	} else if x := os.Getenv("XDG_DATA_HOME"); x != "" {
 		dir = filepath.Join(x, "ostrm")
@@ -48,6 +48,9 @@ func LoadConfig(file string) (Config, error) {
 	return c, nil
 }
 func (c *Config) Resolve() error {
+	if c.DataDir == "" {
+		return fmt.Errorf("无法确定用户数据目录，请通过 --data-dir 指定")
+	}
 	var e error
 	c.DataDir, e = filepath.Abs(c.DataDir)
 	if e != nil {
