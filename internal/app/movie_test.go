@@ -87,7 +87,7 @@ func TestNestedMovieOutputsMetadataAndIncremental(t *testing.T) {
 			if q != "Arrival" && q != "Other" {
 				t.Errorf("wrong query %q", q)
 			}
-			json.NewEncoder(w).Encode(Object{"results": []Object{{"id": id}}})
+			json.NewEncoder(w).Encode(Object{"results": []Object{{"id": id, "title": q, "release_date": r.URL.Query().Get("year") + "-01-01"}}})
 		case strings.HasPrefix(r.URL.Path, "/3/movie/"):
 			title, year := "Arrival", "2020"
 			if strings.HasSuffix(r.URL.Path, "/2") {

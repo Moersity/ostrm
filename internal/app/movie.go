@@ -204,10 +204,10 @@ func selectMovieResult(results []any, title, year string) (int64, error) {
 		}
 	}
 	if best == 0 {
-		return 0, errors.New("TMDB 未匹配到对应年份的电影，请核对年份或指定 TMDB ID")
+		return 0, errors.New("TMDB 未匹配到对应年份的媒体，请核对年份或指定 TMDB ID")
 	}
-	if tied || len(results) > 1 && score == 0 {
-		return 0, errors.New("TMDB 电影匹配不明确，请在手动刮削中选择影片或指定 TMDB ID")
+	if tied || score == 0 {
+		return 0, errors.New("TMDB 媒体匹配不明确，请在手动刮削中选择影片或指定 TMDB ID")
 	}
 	return best, nil
 }

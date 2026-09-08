@@ -113,6 +113,25 @@ func (a *App) preview(ctx context.Context, t, c, s, req Object) (Object, error) 
 			identity = movieLabel(info)
 		}
 	}
+	if typ == "tv" || typ == "anime" {
+		identities := map[string]movieIdentity{}
+		for _, f := range files {
+			if f.IsDir || !video(f.Name, s) {
+				continue
+			}
+			info := identifyTV(str(t, "path"), f.Path)
+			if usefulMovieTitle(info.Title) {
+				identities[movieTitleKey(movieLabel(info))] = info
+			}
+		}
+		if len(identities) > 1 {
+			return nil, errors.New("所选目录包含多部剧集，请选择单部剧集目录或视频文件")
+		}
+		for _, info := range identities {
+			identity = movieLabel(info)
+		}
+	}
+
 	m, e := a.recognize(ctx, s, identity, typ, str(req, "title"), str(req, "year"), num(req, "tmdbId"))
 	if e != nil {
 		return Object{"directoryPath": dir, "matched": false, "matchMessage": e.Error(), "proposedFileRenames": []Object{}, "proposedDirectoryRenames": []Object{}, "proposedDirectoryCreates": []string{}, "generatedFiles": []string{}, "renamedGeneratedFiles": []string{}}, nil

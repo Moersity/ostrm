@@ -18,9 +18,6 @@ import (
 	"time"
 )
 
-var seasonRE = regexp.MustCompile(`(?i)^(?:season\s*|s)(\d+)$|^第(\d+)季$`)
-var episodeRE = regexp.MustCompile(`(?i)S(\d{1,2})[ ._-]*E(\d{1,3})|(?:^|[^a-z])E(?:P)?[ ._-]*(\d{1,3})|第(\d+)集`)
-var yearRE = regexp.MustCompile(`(?:19|20)\d{2}`)
 var tmdbIDRE = regexp.MustCompile(`(?i)\btmdb(?:id)?[= :_-]*(\d+)\b`)
 
 func structureReason(rel, typ string) string {
@@ -31,37 +28,28 @@ func structureReason(rel, typ string) string {
 	case "movie":
 		// Movies may be flat or nested under any number of collection folders.
 		return ""
-	case "tv":
-		if len(parts) != 3 || !isSeasonDirectory(parts[1]) {
-			return "应使用剧名/Season 01/视频文件结构"
-		}
-	case "anime":
-		if len(parts) < 2 || len(parts) > 3 || len(parts) == 3 && !isSeasonDirectory(parts[1]) {
-			return "应使用动画名/视频文件或动画名/Season 01/视频文件结构"
-		}
-	}
-	return ""
-}
-func mediaNumbers(p string) (int, int) {
-	season, episode := 1, 0
-	for _, d := range strings.Split(path.Dir(p), "/") {
-		if n, ok := parseSeason(d); ok {
-			season = n
-		}
-	}
-	if m := episodeRE.FindStringSubmatch(path.Base(p)); m != nil {
-		if m[1] != "" {
-			season, _ = strconv.Atoi(m[1])
-			episode, _ = strconv.Atoi(m[2])
-		} else {
-			for _, s := range m[3:] {
-				if s != "" {
-					episode, _ = strconv.Atoi(s)
+	case "tv", "anime":
+		if len(parts) >= 2 {
+			_, episode := mediaNumbers(rel)
+			if episode > 0 {
+				return ""
+			}
+			for _, dir := range parts[:len(parts)-1] {
+				if isSeasonDirectory(dir) {
+					return ""
 				}
 			}
+			if strings.ToLower(typ) == "anime" {
+				return ""
+			}
 		}
+		_, episode := mediaNumbers(rel)
+		if episode == 0 || !usefulMovieTitle(parseTVName(path.Base(rel), true).Title) {
+			return "需要可识别的剧名及季/集信息，支持多层目录或带剧名的剧集文件"
+		}
+
 	}
-	return season, episode
+	return ""
 }
 func (a *App) tmdb(ctx context.Context, s Object, endpoint string, q url.Values) (Object, error) {
 	c := obj(s, "tmdb")
@@ -120,6 +108,7 @@ func (a *App) tmdb(ctx context.Context, s Object, endpoint string, q url.Values)
 }
 func (a *App) recognize(ctx context.Context, s Object, filename, typ, title, year string, id int64) (Object, error) {
 	explicitTitle := title != ""
+	autoType := typ == "auto" || typ == ""
 	if typ == "anime" {
 		typ = "tv"
 	}
@@ -144,33 +133,17 @@ func (a *App) recognize(ctx context.Context, s Object, filename, typ, title, yea
 				year = info.Year
 			}
 		} else {
-			title = strings.TrimSuffix(path.Base(filename), path.Ext(filename))
-			if isSeasonDirectory(title) {
-				title = path.Base(path.Dir(filename))
+			info := parseTVName(path.Base(filename), false)
+			if video(path.Base(filename), s) || !usefulMovieTitle(info.Title) {
+				info = identifyTV("/", filename)
 			}
+			title = info.Title
 			if year == "" {
-				year = yearRE.FindString(title)
+				year = info.Year
 			}
-			title = tmdbIDRE.ReplaceAllString(title, "")
-			if i := strings.Index(title, year); year != "" && i >= 0 {
-				title = title[:i]
-			}
-			title = strings.Trim(strings.ReplaceAll(title, ".", " "), " [](){}_- ")
+
 		}
-		if id == 0 && boolean(obj(s, "ai"), "enabled", false) {
-			m, e := a.ai(ctx, obj(s, "ai"), filename)
-			if e == nil {
-				if str(m, "title") != "" {
-					title = str(m, "title")
-				}
-				if str(m, "year") != "" {
-					year = str(m, "year")
-				}
-				if str(m, "mediaType") == "tv" || str(m, "mediaType") == "movie" {
-					typ = str(m, "mediaType")
-				}
-			}
-		}
+
 	}
 	if id == 0 && !explicitTitle {
 		key := "movieRegexps"
@@ -182,54 +155,68 @@ func (a *App) recognize(ctx context.Context, s Object, filename, typ, title, yea
 			if typ == "movie" {
 				title = parseMovieName(v, false).Title
 			} else {
-				title = v
+				title = parseTVName(v, false).Title
 			}
 		}
 		if v := str(match, "year"); v != "" {
 			year = v
 		}
 	}
+	if id == 0 && !explicitTitle && boolean(obj(s, "ai"), "enabled", false) {
+		m, e := a.ai(ctx, obj(s, "ai"), filename)
+		if e == nil {
+			if str(m, "title") != "" {
+				title = str(m, "title")
+			}
+			if year == "" && str(m, "year") != "" {
+				year = str(m, "year")
+			}
+			if autoType && (str(m, "mediaType") == "tv" || str(m, "mediaType") == "movie") {
+				typ = str(m, "mediaType")
+			}
+		}
+	}
 	if id == 0 {
-		if typ == "movie" && !usefulMovieTitle(title) {
-			return nil, errors.New("无法从文件或电影目录识别片名，请提供片名、年份或 TMDB ID")
+		if !usefulMovieTitle(title) {
+			return nil, errors.New("无法从文件或目录识别媒体名称，请提供片名、年份或 TMDB ID")
 		}
-		q := url.Values{"query": {title}}
-		if year != "" {
-			key := "year"
+		var matchErr error
+		for _, query := range movieSearchTitles(title) {
+			q := url.Values{"query": {query}}
+			if year != "" {
+				key := "year"
+				if typ == "tv" {
+					key = "first_air_date_year"
+				}
+				q.Set(key, year)
+			}
+			m, err := a.tmdb(ctx, s, "/search/"+typ, q)
+			if err != nil {
+				return nil, err
+			}
+			results, _ := m["results"].([]any)
 			if typ == "tv" {
-				key = "first_air_date_year"
-			}
-			q.Set(key, year)
-		}
-		m, e := a.tmdb(ctx, s, "/search/"+typ, q)
-		if e != nil {
-			return nil, e
-		}
-		rs, _ := m["results"].([]any)
-		if typ == "movie" && len(rs) == 0 {
-			for _, alternative := range movieSearchTitles(title)[1:] {
-				q.Set("query", alternative)
-				m, e = a.tmdb(ctx, s, "/search/movie", q)
-				if e != nil {
-					return nil, e
+				normalized := make([]any, 0, len(results))
+				for _, result := range results {
+					candidate, ok := result.(map[string]any)
+					if !ok {
+						continue
+					}
+					copy := clone(candidate)
+					copy["title"], copy["original_title"], copy["release_date"] = copy["name"], copy["original_name"], copy["first_air_date"]
+					normalized = append(normalized, copy)
 				}
-				rs, _ = m["results"].([]any)
-				if len(rs) > 0 {
-					break
-				}
+				results = normalized
+			}
+			id, matchErr = selectMovieResult(results, title, year)
+			if matchErr == nil {
+				break
 			}
 		}
-		if len(rs) == 0 {
-			return nil, errors.New("TMDB 未匹配到媒体")
+		if matchErr != nil {
+			return nil, matchErr
 		}
-		candidate, _ := rs[0].(map[string]any)
-		id = num(candidate, "id")
-		if typ == "movie" {
-			id, e = selectMovieResult(rs, title, year)
-			if e != nil {
-				return nil, e
-			}
-		}
+
 		if id <= 0 {
 			return nil, errors.New("TMDB 返回无效媒体 ID")
 		}
@@ -251,6 +238,14 @@ func (a *App) recognize(ctx context.Context, s Object, filename, typ, title, yea
 func (a *App) ai(ctx context.Context, c Object, name string) (Object, error) {
 	if e := require(c, "baseUrl", "apiKey", "model"); e != nil {
 		return nil, e
+	}
+	cacheData, _ := json.Marshal(Object{"config": c, "filename": name})
+	key := "ai:" + hashBytes(cacheData)
+	a.mu.Lock()
+	cached, ok := a.cache[key]
+	a.mu.Unlock()
+	if ok && time.Now().Before(cached.until) {
+		return clone(cached.value), nil
 	}
 	lc := Object{"id": "ai", "baseUrl": str(c, "baseUrl"), "fsApiQpmLimit": num(c, "qpmLimit")}
 	if e := a.limit(lc).wait(ctx, 0, num(c, "qpmLimit")); e != nil {
@@ -278,6 +273,19 @@ func (a *App) ai(ctx context.Context, c Object, name string) (Object, error) {
 	if e = json.Unmarshal([]byte(content), &m); e != nil {
 		return nil, errors.New("AI 返回无效JSON")
 	}
+	if year := num(m, "year"); year >= 1900 && year <= 2099 {
+		m["year"] = strconv.FormatInt(year, 10)
+	}
+	if strings.TrimSpace(str(m, "title")) == "" {
+		return nil, errors.New("AI 未返回有效媒体名称")
+	}
+	a.mu.Lock()
+	if len(a.cache) > 1024 {
+		a.cache = map[string]cacheEntry{}
+	}
+	a.cache[key] = cacheEntry{clone(m), time.Now().Add(5 * time.Minute)}
+	a.mu.Unlock()
+
 	return m, nil
 }
 
@@ -533,10 +541,7 @@ func (a *App) processMetadata(ctx context.Context, t, c, s Object, f remoteFile,
 			return nil
 		}
 	}
-	identity := path.Base(path.Dir(f.Path))
-	if isSeasonDirectory(identity) {
-		identity = path.Base(path.Dir(path.Dir(f.Path)))
-	}
+	identity := movieLabel(identifyTV(str(t, "path"), f.Path))
 	typ := str(t, "libraryType")
 	if typ == "auto" || typ == "" {
 		_, ep := mediaNumbersConfig(s, f.Path)
