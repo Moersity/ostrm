@@ -62,7 +62,7 @@
                   id="tmdbLanguage"
                   v-model="tmdbConfig.language"
                   :options="tmdbLanguageOptions"
-                  :reduce="(opt: any) => opt.value"
+                  :reduce="(opt) => opt.value"
                   :clearable="false"
                   class="vue-select-md"
                 />
@@ -73,7 +73,7 @@
                   id="tmdbRegion"
                   v-model="tmdbConfig.region"
                   :options="tmdbRegionOptions"
-                  :reduce="(opt: any) => opt.value"
+                  :reduce="(opt) => opt.value"
                   :clearable="false"
                   class="vue-select-md"
                 />
@@ -109,7 +109,7 @@
                       id="tmdbApiDomain"
                       v-model="tmdbApiDomain"
                       :options="tmdbApiDomainOptions"
-                      :reduce="(opt: any) => opt.value"
+                      :reduce="(opt) => opt.value"
                       :clearable="false"
                       class="vue-select-md"
                       @update:modelValue="handleApiDomainChange"
@@ -132,7 +132,7 @@
                       id="tmdbImageDomain"
                       v-model="tmdbImageDomain"
                       :options="tmdbImageDomainOptions"
-                      :reduce="(opt: any) => opt.value"
+                      :reduce="(opt) => opt.value"
                       :clearable="false"
                       class="vue-select-md"
                       @update:modelValue="handleImageDomainChange"
@@ -405,7 +405,7 @@
                   id="logRetentionDays"
                   v-model.number="logConfig.retentionDays"
                   :options="logRetentionOptions"
-                  :reduce="(opt: any) => opt.value"
+                  :reduce="(opt) => opt.value"
                   :clearable="false"
                   class="vue-select-md"
                 />
@@ -417,7 +417,7 @@
                   id="logLevel"
                   v-model="logConfig.level"
                   :options="logLevelOptions"
-                  :reduce="(opt: any) => opt.value"
+                  :reduce="(opt) => opt.value"
                   :clearable="false"
                   class="vue-select-md"
                 />
@@ -427,7 +427,7 @@
 
             <div class="border-t border-white/6 pt-5">
               <label class="flex items-start gap-3 cursor-pointer">
-                <input id="reportUsageData" v-model="logConfig.reportUsageData" type="checkbox" class="h-5 w-5 rounded mt-0.5" />
+                <input id="reportUsageData" v-model="logConfig.reportUsageData" type="checkbox" disabled class="h-5 w-5 rounded mt-0.5" />
                 <div class="flex-1">
                   <span class="text-sm font-medium text-white">上报使用数据</span>
                   <p class="text-xs text-white/40 mt-1">帮助我们改进产品体验。即使勾选此选项，也不会上报任何用户隐私信息，仅收集匿名的功能使用统计数据。</p>
@@ -514,7 +514,7 @@ const notificationConfig = ref({
   configKey: 'ostrm',
   tags: 'all'
 })
-const logConfig = ref({ retentionDays: 7, level: 'info', reportUsageData: true })
+const logConfig = ref({ retentionDays: 7, level: 'info', reportUsageData: false })
 const showApiKey = ref(false)
 const saving = ref(false)
 const showSuccess = ref(false)

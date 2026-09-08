@@ -253,13 +253,8 @@
 
               <div>
                 <label class="block text-sm text-white/70 mb-2">STRM路径</label>
-                <div class="flex">
-                  <span class="inline-flex items-center px-3 rounded-l-xl border border-r-0 border-white/10 bg-white/5 text-white/50 text-sm">
-                    /app/backend/strm/
-                  </span>
-                  <input v-model="strmSubPath" type="text" placeholder="子路径（可选）" class="input-field rounded-l-none">
-                </div>
-                <p class="mt-1 text-xs text-white/30">前缀 /app/backend/strm/ 固定不可修改</p>
+                <input v-model="strmSubPath" type="text" placeholder="完整本地路径，或相对默认输出目录的子路径" class="input-field">
+                <p class="mt-1 text-xs text-white/30">支持 Windows、macOS 和 Linux 路径；留空按任务名称创建目录。</p>
               </div>
 
               <div>
@@ -650,7 +645,7 @@ const taskForm = ref({
   taskName: '',
   path: '',
   libraryType: '',
-  strmPath: '/app/backend/strm',
+  strmPath: '',
   cron: '',
   needScrap: false,
   skipInvalidStructure: false,
@@ -757,7 +752,7 @@ const onMediaLibraryChange = () => {
 
 const resetTaskForm = () => {
   taskForm.value = {
-    taskName: '', path: '', strmPath: '/app/backend/strm', cron: '',
+    taskName: '', path: '', strmPath: '', cron: '',
     libraryType: '', needScrap: false, skipInvalidStructure: false,
     renameRegex: '', mediaServerConfigId: null, mediaRefreshScope: 'NONE', mediaLibraryId: '',
     mediaLibraryName: '', isIncrement: true, isActive: true
@@ -776,8 +771,7 @@ const editTask = (task) => {
     mediaRefreshScope: task.mediaRefreshScope || 'NONE', mediaLibraryId: task.mediaLibraryId || '',
     mediaLibraryName: task.mediaLibraryName || '', isIncrement: task.isIncrement, isActive: task.isActive
   }
-  const prefix = '/app/backend/strm/'
-  strmSubPath.value = task.strmPath?.startsWith(prefix) ? task.strmPath.substring(prefix.length) : ''
+  strmSubPath.value = task.strmPath || ''
   showEditTaskModal.value = true
   if (taskForm.value.mediaRefreshScope === 'LIBRARY' && taskForm.value.mediaServerConfigId) loadMediaLibraries()
 }
@@ -809,7 +803,7 @@ const submitTask = async () => {
       throw new Error('已保存的媒体库已失效，请重新选择媒体库后再保存')
     }
     if (taskForm.value.path) await validateTaskPath(taskForm.value.path)
-    const fullStrmPath = '/app/backend/strm/' + (strmSubPath.value || '')
+    const fullStrmPath = strmSubPath.value || ''
     const taskData = {
       ...taskForm.value,
       skipInvalidStructure: taskForm.value.libraryType === 'auto' ? false : taskForm.value.skipInvalidStructure,

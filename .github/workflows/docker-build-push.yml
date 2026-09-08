@@ -1,12 +1,8 @@
 name: Build and Push Docker Image
 
+# Historical Docker pipeline retained for reference; Go release is authoritative.
 on:
-  pull_request:
-    types:
-      - closed
-    branches:
-      - main
-      - beta
+  workflow_dispatch:
 
 env:
   REGISTRY: docker.io

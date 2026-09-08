@@ -1,0 +1,5 @@
+import {execFileSync} from 'node:child_process';import {existsSync,readFileSync,writeFileSync} from 'node:fs';import {resolve} from 'node:path';
+const os=process.argv[2],arch=process.argv[3],version=process.env.OSTRM_VERSION||'3.0.0-dev';const name=`ostrm_${version}_${os}_${arch}`,dir=`dist/${name}`;
+if(!existsSync(dir))throw Error('Build missing');
+if(os==='windows'){execFileSync('pwsh',['-NoProfile','-File','packaging/windows/build.ps1','-Version',version,'-Arch',arch],{stdio:'inherit'});execFileSync('pwsh',['-NoProfile','-Command',`Compress-Archive -Path '${dir}/*' -DestinationPath 'dist/${name}.zip' -Force`],{stdio:'inherit'});}
+else{execFileSync('tar',['-czf',`dist/${name}.tar.gz`,'-C','dist',name]);if(os==='darwin')execFileSync('bash',['packaging/macos/build-pkg.sh',version,arch],{stdio:'inherit'});else{for(const format of ['deb','rpm'])execFileSync('nfpm',['package','--config','packaging/linux/nfpm.yaml','--packager',format,'--target',`dist/${name}.${format}`],{stdio:'inherit',env:{...process.env,ARCH:arch,VERSION:version,BINARY:resolve(`${dir}/ostrm`)}})}}

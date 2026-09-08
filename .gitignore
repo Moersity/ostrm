@@ -10,3 +10,8 @@ data/
 logs/
 .vscode/
 .agent/
+# Go rewrite build products
+/dist/
+/internal/web/dist/*
+!/internal/web/dist/index.html
+*.test
