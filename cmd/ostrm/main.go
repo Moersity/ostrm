@@ -128,6 +128,10 @@ func run() error {
 	}
 	server := &http.Server{Handler: a.Handler(), ReadHeaderTimeout: 10 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 1 << 20}
 	p := &program{a, server, listener}
+	fmt.Println("OStrm", app.Version, "http://"+listener.Addr().String())
+	if c.OpenBrowser {
+		go openBrowser("http://" + listener.Addr().String())
+	}
 	if !service.Interactive() {
 		svc, e := service.New(p, &service.Config{Name: "ostrm", DisplayName: "OStrm"})
 		if e != nil {
@@ -137,10 +141,6 @@ func run() error {
 		return svc.Run()
 	}
 	defer a.Close()
-	fmt.Println("OStrm", app.Version, "http://"+listener.Addr().String())
-	if c.OpenBrowser {
-		go openBrowser("http://" + listener.Addr().String())
-	}
 	errs := make(chan error, 1)
 	go func() { errs <- server.Serve(listener) }()
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
