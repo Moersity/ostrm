@@ -49,7 +49,7 @@
               v-if="scrapingJob.renamedDirectoryCount || scrapingJob.renamedFileCount"
               class="mt-2 text-xs text-white/45"
             >
-              已重命名 {{ scrapingJob.renamedDirectoryCount || 0 }} 个目录、{{ scrapingJob.renamedFileCount || 0 }} 个媒体文件
+              已整理 {{ scrapingJob.renamedDirectoryCount || 0 }} 个目录、{{ scrapingJob.renamedFileCount || 0 }} 个媒体及伴随文件
             </p>
             <p v-if="scrapingJob.errorMessage" class="mt-2 break-all text-sm text-red-200">
               {{ scrapingJob.errorMessage }}
@@ -241,11 +241,13 @@
             <label class="flex cursor-pointer items-start gap-3">
               <input v-model="renameMedia" type="checkbox" class="mt-1 h-4 w-4 rounded">
               <span>
-                <span class="block text-sm font-medium text-white">重命名媒体目录和文件</span>
+                <span class="block text-sm font-medium text-white">整理并重命名媒体目录和文件</span>
                 <span class="mt-1 block text-xs leading-5 text-amber-200/65">
                   {{ preview.mediaType === 'tv'
-                    ? '确认后会依次重命名剧集根目录、季目录和媒体文件。'
-                    : '确认后会依次重命名媒体目录和媒体文件。' }}
+                    ? '确认后会标准化季目录；平铺剧集会创建季目录，并整体移动视频、字幕、图片和 NFO。'
+                    : preview.organizeFlatMovie
+                      ? '确认后会创建标准电影目录，并整体移动视频及同名字幕、图片和 NFO。'
+                      : '确认后会依次重命名媒体目录和媒体文件。' }}
                   该操作会直接修改 OpenList 源目录。
                 </span>
               </span>
@@ -256,7 +258,7 @@
           </div>
 
           <div v-if="renameMedia" class="space-y-3">
-            <h3 class="text-sm font-medium text-white/80">重命名预览</h3>
+            <h3 class="text-sm font-medium text-white/80">整理与重命名预览</h3>
             <div class="rounded-lg bg-white/[0.03] p-3 text-sm">
               <span class="text-white/40">媒体目录：</span>
               <span class="break-all font-mono text-white/75">{{ selectedDirectory.name }}</span>
@@ -280,8 +282,18 @@
                 </span>
               </div>
             </div>
+            <div v-if="preview.proposedDirectoryCreates?.length" class="space-y-1">
+              <div class="px-3 text-xs text-white/40">创建季目录</div>
+              <div
+                v-for="directory in preview.proposedDirectoryCreates"
+                :key="directory"
+                class="rounded-lg px-3 py-2 font-mono text-xs text-emerald-300"
+              >
+                + {{ directory }}
+              </div>
+            </div>
             <div class="max-h-48 space-y-1 overflow-y-auto">
-              <div class="px-3 text-xs text-white/40">媒体文件</div>
+              <div class="px-3 text-xs text-white/40">媒体及伴随文件</div>
               <div
                 v-for="item in preview.proposedFileRenames"
                 :key="item.sourcePath"
@@ -289,7 +301,10 @@
               >
                 <span class="break-all font-mono text-white/45">{{ item.sourceName }}</span>
                 <span class="hidden text-white/20 sm:block">→</span>
-                <span class="break-all font-mono text-blue-300">{{ item.targetName }}</span>
+                <span class="break-all font-mono text-blue-300">
+                  {{ item.targetDirectory ? `${item.targetDirectory}/` : '' }}{{ item.targetName }}
+                  <span v-if="item.assetType && item.assetType !== 'video'" class="ml-1 text-white/30">（{{ item.assetType }}）</span>
+                </span>
               </div>
             </div>
           </div>
@@ -386,7 +401,7 @@ const libraryTypeLabel = (type) => ({
 
 const jobStageLabel = (stage) => ({
   PREPARING: '准备',
-  RENAMING: '重命名',
+  RENAMING: '整理与重命名',
   GENERATING: '下载与生成',
   UPLOADING: '上传',
   COMPLETED: '完成'
@@ -510,7 +525,9 @@ const executeScraping = async () => {
   if (!preview.value || isJobActive.value) return
   const renameAction = preview.value.mediaType === 'tv'
     ? '重命名源目录、季目录和文件，并上传刮削信息'
-    : '重命名源目录和文件，并上传刮削信息'
+    : preview.value.organizeFlatMovie
+      ? '创建标准电影目录，移动并重命名媒体及伴随文件，然后上传刮削信息'
+      : '重命名源目录和文件，并上传刮削信息'
   const action = renameMedia.value ? renameAction : '上传刮削信息'
   if (!confirm(`确认${action}？`)) return
 
@@ -523,6 +540,7 @@ const executeScraping = async () => {
         directoryPath: preview.value.directoryPath,
         mediaType: preview.value.mediaType,
         tmdbId: preview.value.tmdbId,
+        planHash: preview.value.planHash,
         renameMedia: renameMedia.value
       }
     })

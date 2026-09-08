@@ -52,6 +52,30 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class ManualScrapingService {
 
+  private static final Set<String> SUBTITLE_EXTENSIONS =
+      Set.of(".srt", ".ass", ".ssa", ".vtt", ".sub", ".idx");
+  private static final Set<String> IMAGE_EXTENSIONS =
+      Set.of(".jpg", ".jpeg", ".png", ".webp", ".bmp", ".gif", ".tiff", ".tif");
+  private static final Set<String> SHARED_SERIES_FILES =
+      Set.of(
+          "tvshow.nfo",
+          "poster.jpg",
+          "poster.png",
+          "poster.webp",
+          "fanart.jpg",
+          "fanart.png",
+          "fanart.webp",
+          "banner.jpg",
+          "banner.png",
+          "clearlogo.png",
+          "clearart.png",
+          "landscape.jpg",
+          "logo.png",
+          "folder.jpg",
+          "theme.mp3");
+  private static final Pattern EPISODE_MARKER =
+      Pattern.compile("(?i)(?:s\\d{1,2}[ ._-]*e\\d{1,3}|\\d{1,2}x\\d{1,3})");
+
   private final TaskConfigService taskConfigService;
   private final OpenlistConfigService openlistConfigService;
   private final OpenlistApiService openlistApiService;
@@ -100,20 +124,34 @@ public class ManualScrapingService {
                 .filter(entry -> strmFileService.isVideoFile(entry.getName()))
                 .count();
     List<DirectoryNode> children =
-        entries.stream()
-            .filter(entry -> "folder".equals(entry.getType()))
-            .sorted(
-                Comparator.comparing(
-                    OpenlistApiService.OpenlistFile::getName, String.CASE_INSENSITIVE_ORDER))
-            .map(
-                entry ->
-                    DirectoryNode.builder()
-                        .name(entry.getName())
-                        .path(normalizePath(entry.getPath()))
-                        .videoFileCount(0)
-                        .childrenLoaded(false)
-                        .build())
-            .toList();
+        new ArrayList<>(
+            entries.stream()
+                .filter(entry -> "folder".equals(entry.getType()))
+                .map(
+                    entry ->
+                        DirectoryNode.builder()
+                            .name(entry.getName())
+                            .path(normalizePath(entry.getPath()))
+                            .videoFileCount(0)
+                            .childrenLoaded(false)
+                            .build())
+                .toList());
+    if (isMovieTaskRoot(context, directoryPath)) {
+      entries.stream()
+          .filter(entry -> "file".equals(entry.getType()))
+          .filter(entry -> strmFileService.isVideoFile(entry.getName()))
+          .map(
+              entry ->
+                  DirectoryNode.builder()
+                      .name(entry.getName())
+                      .path(normalizePath(entry.getPath()))
+                      .mediaFile(true)
+                      .videoFileCount(1)
+                      .childrenLoaded(true)
+                      .build())
+          .forEach(children::add);
+    }
+    children.sort(Comparator.comparing(DirectoryNode::getName, String.CASE_INSENSITIVE_ORDER));
     return DirectoryNode.builder()
         .name(name)
         .path(normalizePath(directoryPath))
@@ -127,12 +165,12 @@ public class ManualScrapingService {
     Context context = loadContext(taskId);
     String selectedPath = requireTaskPath(context.task(), request.getDirectoryPath());
     validateSelectableDirectory(context.libraryType(), selectedPath);
-    VideoScan videoScan = scanVideoFiles(context.openlistConfig(), selectedPath);
+    VideoScan videoScan = scanVideoFiles(context, selectedPath, null);
     List<OpenlistApiService.OpenlistFile> videoFiles = videoScan.videoFiles();
     if (videoFiles.isEmpty()) {
       throw new BusinessException("所选目录下没有可刮削的媒体文件");
     }
-    validateMediaDirectory(context.libraryType(), selectedPath, videoFiles);
+    validateMediaDirectory(context, selectedPath, videoFiles);
 
     String mediaType = context.libraryType() == MediaLibraryType.MOVIE ? "movie" : "tv";
     String searchTitle = trimToNull(request.getTitle());
@@ -202,8 +240,10 @@ public class ManualScrapingService {
             .posterUrl(match.posterUrl())
             .backdropUrl(match.backdropUrl())
             .videoFileCount(videoFiles.size())
+            .organizeFlatMovie(renamePlan.organizeFlatMovie())
             .proposedDirectoryName(renamePlan.directoryName())
             .proposedDirectoryRenames(renamePlan.seasonDirectories())
+            .proposedDirectoryCreates(renamePlan.directoriesToCreate())
             .proposedFileRenames(renamePlan.files())
             .generatedFiles(metadataNames(match, renamePlan, false))
             .renamedGeneratedFiles(metadataNames(match, renamePlan, true))
@@ -223,125 +263,6 @@ public class ManualScrapingService {
     PreviewRequest request = new PreviewRequest();
     request.setDirectoryPath(directoryPath);
     return preview(taskId, request);
-  }
-
-  /**
-   * 普通任务执行前复用手动刮削的命名规则，仅重命名 OpenList 媒体，不生成或上传元数据。
-   *
-   * <p>调用方必须在本方法返回后重新读取文件清单，避免继续使用重命名前的路径和 URL。
-   */
-  public AutoRenameResult autoRenameForTaskExecution(Long taskId, String directoryPath) {
-    Context context = loadContext(taskId);
-    String selectedPath = requireTaskPath(context.task(), directoryPath);
-    if (normalizePath(context.task().getPath()).equals(selectedPath)) {
-      throw new BusinessException("不能自动重命名任务根目录");
-    }
-    validateSelectableDirectory(context.libraryType(), selectedPath);
-
-    VideoScan videoScan = scanVideoFiles(context.openlistConfig(), selectedPath);
-    List<OpenlistApiService.OpenlistFile> videoFiles = videoScan.videoFiles();
-    if (videoFiles.isEmpty()) {
-      return new AutoRenameResult(false, selectedPath, 0, 0, "目录中没有媒体文件", null);
-    }
-    validateMediaDirectory(context.libraryType(), selectedPath, videoFiles);
-
-    Integer tmdbId = TmdbIdExtractor.extractTmdbIdFromPath(selectedPath);
-    if (tmdbId == null) {
-      tmdbId = TmdbIdExtractor.extractTmdbIdFromFileName(videoFiles.get(0).getName());
-    }
-
-    Match match;
-    if (tmdbId != null) {
-      match = loadMatch(context.libraryType() == MediaLibraryType.MOVIE ? "movie" : "tv", tmdbId);
-    } else {
-      MediaInfo mediaInfo;
-      try {
-        mediaInfo = recognize(context, videoFiles.get(0));
-      } catch (BusinessException e) {
-        String reason = e.getMessage();
-        return new AutoRenameResult(
-            false,
-            selectedPath,
-            0,
-            0,
-            reason,
-            scrapeIssue("TITLE_UNAVAILABLE", videoFiles.get(0).getPath(), reason));
-      }
-      if (mediaInfo.getConfidence() < 70) {
-        String reason = "媒体识别置信度过低（" + mediaInfo.getConfidence() + "%）";
-        return new AutoRenameResult(
-            false,
-            selectedPath,
-            0,
-            0,
-            reason,
-            scrapeIssue("LOW_CONFIDENCE", videoFiles.get(0).getPath(), reason));
-      }
-      match = findMatch(context.libraryType(), mediaInfo, selectedPath);
-    }
-    if (match == null) {
-      String reason = "TMDB 未找到匹配结果";
-      return new AutoRenameResult(
-          false,
-          selectedPath,
-          0,
-          0,
-          reason,
-          scrapeIssue("TMDB_NOT_MATCHED", videoFiles.get(0).getPath(), reason));
-    }
-
-    RenamePlan renamePlan =
-        buildRenamePlan(
-            context,
-            selectedPath,
-            videoFiles,
-            videoScan.entries(),
-            match.title(),
-            match.year(),
-            match.tmdbId());
-    RenameExecutionResult result;
-    try {
-      validateRenameCollisions(
-          context.openlistConfig(), selectedPath, renamePlan, videoScan.entries());
-      result =
-          executeRenamePlan(
-              context,
-              selectedPath,
-              selectedPath,
-              renamePlan,
-              videoScan.entries(),
-              0,
-              0,
-              0,
-              writeRenamePlan(renamePlan),
-              (stage,
-                  progress,
-                  message,
-                  finalPath,
-                  renamedDirectoryCount,
-                  renamedFileCount,
-                  serializedPlan,
-                  operationIndex) -> {});
-    } catch (RenameOperationException e) {
-      throw e.withMedia(match.title(), match.tmdbId());
-    }
-    previewCache.invalidate(new PreviewCacheKey(taskId, selectedPath, match.tmdbId()));
-    return new AutoRenameResult(
-        true,
-        result.finalDirectoryPath(),
-        result.renamedDirectoryCount(),
-        result.renamedFileCount(),
-        "自动重命名完成",
-        null);
-  }
-
-  private NotificationIssue scrapeIssue(String reasonCode, String sourcePath, String reason) {
-    return NotificationIssue.builder()
-        .category(NotificationIssue.Category.SCRAPE_UNRECOGNIZED)
-        .reasonCode(reasonCode)
-        .sourcePath(sourcePath)
-        .reason(reason)
-        .build();
   }
 
   public ExecuteResult execute(Long taskId, ExecuteRequest request) {
@@ -430,20 +351,23 @@ public class ManualScrapingService {
             ? loadMatch(request.getMediaType(), request.getTmdbId())
             : previewSnapshot.match();
     String expectedDirectoryName = buildDirectoryName(match.title(), match.year(), match.tmdbId());
+    boolean organizeFlatMovie = isFlatMovieSelection(context, originalPath);
     String expectedDirectoryPath =
         request.isRenameMedia() ? join(parentPath(originalPath), expectedDirectoryName) : null;
     String temporaryDirectoryPath =
-        request.isRenameMedia()
+        request.isRenameMedia() && !organizeFlatMovie
             ? join(
                 parentPath(originalPath), temporaryRenameName(originalPath, expectedDirectoryName))
             : null;
     String selectedPath =
-        resolveExecutionPath(
-            context,
-            originalPath,
-            checkpointDirectoryPath,
-            expectedDirectoryPath,
-            temporaryDirectoryPath);
+        organizeFlatMovie
+            ? originalPath
+            : resolveExecutionPath(
+                context,
+                originalPath,
+                checkpointDirectoryPath,
+                expectedDirectoryPath,
+                temporaryDirectoryPath);
     validateSelectableDirectory(context.libraryType(), selectedPath);
 
     boolean reusePreview =
@@ -454,12 +378,13 @@ public class ManualScrapingService {
                 previewSnapshot.videoFiles(),
                 previewSnapshot.entries(),
                 previewSnapshot.rootDirectoryFingerprint())
-            : scanVideoFiles(context.openlistConfig(), selectedPath);
+            : scanVideoFiles(
+                context, selectedPath, organizeFlatMovie ? expectedDirectoryPath : null);
     List<OpenlistApiService.OpenlistFile> videoFiles = videoScan.videoFiles();
     if (videoFiles.isEmpty()) {
       throw new BusinessException("所选目录下没有可刮削的媒体文件");
     }
-    validateMediaDirectory(context.libraryType(), selectedPath, videoFiles);
+    validateMediaDirectory(context, selectedPath, videoFiles);
 
     RenamePlan renamePlan = readRenamePlan(checkpointRenamePlan);
     if (renamePlan == null) {
@@ -489,11 +414,18 @@ public class ManualScrapingService {
           renamedFileCount,
           serializedRenamePlan,
           renameOperationIndex);
-      if (normalizePath(context.task().getPath()).equals(selectedPath)) {
+      if (normalizePath(context.task().getPath()).equals(selectedPath)
+          && !renamePlan.organizeFlatMovie()) {
         throw new BusinessException("不能重命名任务根目录，请选择根目录下的媒体目录");
       }
       validateRenameCollisions(
-          context.openlistConfig(), selectedPath, renamePlan, videoScan.entries());
+          context.openlistConfig(),
+          selectedPath,
+          renamePlan,
+          videoScan.entries(),
+          checkpointRenamePlan != null
+              && !checkpointRenamePlan.isBlank()
+              && checkpointRenameOperationIndex > 0);
       RenameExecutionResult renameResult =
           executeRenamePlan(
               context,
@@ -512,7 +444,9 @@ public class ManualScrapingService {
       renameOperationIndex = renameResult.operationIndex();
     }
 
-    if (checkpointDirectoryPath != null && !checkpointDirectoryPath.isBlank()) {
+    if (checkpointDirectoryPath != null
+        && !checkpointDirectoryPath.isBlank()
+        && !renamePlan.organizeFlatMovie()) {
       finalDirectoryPath = selectedPath;
     }
 
@@ -614,21 +548,54 @@ public class ManualScrapingService {
     return new Context(task, config, libraryType);
   }
 
-  private List<OpenlistApiService.OpenlistFile> findVideoFiles(
-      OpenlistConfig config, String directoryPath) {
-    return scanVideoFiles(config, directoryPath).videoFiles();
-  }
-
-  private VideoScan scanVideoFiles(OpenlistConfig config, String directoryPath) {
-    List<OpenlistApiService.OpenlistFile> entries =
-        openlistApiService.getAllFilesRecursively(config, directoryPath);
+  private VideoScan scanVideoFiles(
+      Context context, String directoryPath, String organizedMoviePath) {
+    List<OpenlistApiService.OpenlistFile> entries;
+    if (isFlatMovieSelection(context, directoryPath)) {
+      String movieRoot = parentPath(directoryPath);
+      List<OpenlistApiService.OpenlistFile> rootEntries =
+          openlistApiService.getDirectoryContents(context.openlistConfig(), movieRoot);
+      entries = new ArrayList<>(rootEntries);
+      if (organizedMoviePath != null
+          && rootEntries.stream()
+              .anyMatch(
+                  entry ->
+                      "folder".equals(entry.getType())
+                          && normalizePath(organizedMoviePath)
+                              .equals(normalizePath(entry.getPath())))) {
+        entries.addAll(
+            openlistApiService.getAllFilesRecursively(
+                context.openlistConfig(), organizedMoviePath));
+      }
+    } else if (isMovieTaskRoot(context, directoryPath)) {
+      entries = openlistApiService.getDirectoryContents(context.openlistConfig(), directoryPath);
+    } else {
+      entries = openlistApiService.getAllFilesRecursively(context.openlistConfig(), directoryPath);
+    }
+    String normalizedDirectory = normalizePath(directoryPath);
+    String normalizedOrganizedMoviePath =
+        organizedMoviePath == null ? null : normalizePath(organizedMoviePath);
     List<OpenlistApiService.OpenlistFile> videoFiles =
         entries.stream()
             .filter(file -> "file".equals(file.getType()))
             .filter(file -> strmFileService.isVideoFile(file.getName()))
+            .filter(
+                file ->
+                    !isFlatMovieSelection(context, directoryPath)
+                        || normalizedDirectory.equals(normalizePath(file.getPath()))
+                        || (normalizedOrganizedMoviePath != null
+                            && normalizePath(file.getPath())
+                                .startsWith(normalizedOrganizedMoviePath + "/")))
             .sorted(Comparator.comparing(OpenlistApiService.OpenlistFile::getPath))
             .toList();
-    return new VideoScan(videoFiles, entries, directoryFingerprint(entries, directoryPath));
+    return new VideoScan(
+        videoFiles,
+        entries,
+        directoryFingerprint(
+            entries,
+            isFlatMovieSelection(context, directoryPath)
+                ? parentPath(directoryPath)
+                : directoryPath));
   }
 
   private boolean canReusePreviewSnapshot(
@@ -636,11 +603,13 @@ public class ManualScrapingService {
     if (previewSnapshot == null || !selectedPath.equals(originalPath)) {
       return false;
     }
+    String fingerprintRoot =
+        isFlatMovieSelection(context, selectedPath) ? parentPath(selectedPath) : selectedPath;
     List<OpenlistApiService.OpenlistFile> currentRoot =
-        openlistApiService.getDirectoryContents(context.openlistConfig(), selectedPath);
+        openlistApiService.getDirectoryContents(context.openlistConfig(), fingerprintRoot);
     return previewSnapshot
         .rootDirectoryFingerprint()
-        .equals(directoryFingerprint(currentRoot, selectedPath));
+        .equals(directoryFingerprint(currentRoot, fingerprintRoot));
   }
 
   private Map<String, String> directoryFingerprint(
@@ -771,12 +740,14 @@ public class ManualScrapingService {
       String year,
       Integer tmdbId) {
     String directoryName = buildDirectoryName(title, year, tmdbId);
+    boolean organizeFlatMovie = isFlatMovieSelection(context, selectedPath);
     List<RenameItem> seasonDirectories =
         context.libraryType().isTvLike()
             ? buildSeasonDirectoryRenames(context, selectedPath, entries)
             : List.of();
     List<RenameItem> files = new ArrayList<>();
     List<String> targetBases = new ArrayList<>();
+    List<String> targetDirectories = new ArrayList<>();
     List<String> extensions = new ArrayList<>();
     Set<String> usedTargets = new HashSet<>();
     Map<String, String> retainedTargets = new LinkedHashMap<>();
@@ -784,10 +755,11 @@ public class ManualScrapingService {
     for (OpenlistApiService.OpenlistFile file : videoFiles) {
       String extension = extension(file.getName());
       String targetBase;
+      MediaInfo episode = null;
       if (context.libraryType() == MediaLibraryType.MOVIE) {
         targetBase = directoryName;
       } else {
-        MediaInfo episode =
+        episode =
             TaskMediaParser.parse(
                 file.getName(),
                 relativePath(context.task().getPath(), file.getPath()),
@@ -801,6 +773,10 @@ public class ManualScrapingService {
                 : safeName(title + " - " + episode.getSeasonEpisodeString());
       }
       targetBases.add(targetBase);
+      targetDirectories.add(
+          organizeFlatMovie
+              ? directoryName
+              : targetDirectoryForFlatEpisode(selectedPath, file, episode));
       extensions.add(extension);
 
       if (isGeneratedTargetName(file.getName(), targetBase, extension)) {
@@ -817,7 +793,9 @@ public class ManualScrapingService {
             RenameItem.builder()
                 .sourcePath(file.getPath())
                 .sourceName(file.getName())
+                .targetDirectory(targetDirectories.get(index))
                 .targetName(retainedTarget)
+                .assetType("video")
                 .build());
         continue;
       }
@@ -836,10 +814,205 @@ public class ManualScrapingService {
           RenameItem.builder()
               .sourcePath(file.getPath())
               .sourceName(file.getName())
+              .targetDirectory(targetDirectories.get(index))
               .targetName(targetName)
+              .assetType("video")
               .build());
     }
-    return new RenamePlan(directoryName, seasonDirectories, files);
+    if (context.libraryType().isTvLike()) {
+      files.addAll(buildSidecarRelocations(selectedPath, entries, files));
+      files.addAll(buildSeasonAssetRelocations(selectedPath, entries, files));
+    } else if (organizeFlatMovie) {
+      files.addAll(buildSidecarRelocations(parentPath(selectedPath), entries, files));
+    }
+    List<String> directoriesToCreate =
+        buildDirectoriesToCreate(
+            organizeFlatMovie ? parentPath(selectedPath) : selectedPath,
+            entries,
+            seasonDirectories,
+            files);
+    return new RenamePlan(
+        directoryName, seasonDirectories, directoriesToCreate, files, organizeFlatMovie);
+  }
+
+  private String targetDirectoryForFlatEpisode(
+      String selectedPath, OpenlistApiService.OpenlistFile file, MediaInfo episode) {
+    if (!normalizePath(selectedPath).equals(normalizePath(parentPath(file.getPath())))
+        || episode == null
+        || episode.getSeason() == null
+        || episode.getEpisode() == null) {
+      return null;
+    }
+    return String.format("Season %02d", episode.getSeason());
+  }
+
+  private List<RenameItem> buildSidecarRelocations(
+      String selectedPath,
+      List<OpenlistApiService.OpenlistFile> entries,
+      List<RenameItem> videoItems) {
+    List<RenameItem> flatVideos =
+        videoItems.stream().filter(item -> item.getTargetDirectory() != null).toList();
+    if (flatVideos.isEmpty()) {
+      return List.of();
+    }
+    List<RenameItem> result = new ArrayList<>();
+    for (OpenlistApiService.OpenlistFile entry : entries) {
+      if (!"file".equals(entry.getType())
+          || !normalizePath(selectedPath).equals(normalizePath(parentPath(entry.getPath())))
+          || SHARED_SERIES_FILES.contains(entry.getName().toLowerCase(Locale.ROOT))) {
+        continue;
+      }
+      String assetType = sidecarAssetType(entry.getName());
+      if (assetType == null) {
+        continue;
+      }
+      List<RenameItem> matches = matchingVideos(entry.getName(), flatVideos);
+      if (matches.size() != 1) {
+        continue;
+      }
+      RenameItem video = matches.get(0);
+      String targetName = sidecarTargetName(entry.getName(), video);
+      result.add(
+          RenameItem.builder()
+              .sourcePath(entry.getPath())
+              .sourceName(entry.getName())
+              .targetDirectory(video.getTargetDirectory())
+              .targetName(targetName)
+              .assetType(assetType)
+              .build());
+    }
+    return result;
+  }
+
+  private List<RenameItem> buildSeasonAssetRelocations(
+      String selectedPath,
+      List<OpenlistApiService.OpenlistFile> entries,
+      List<RenameItem> alreadyPlanned) {
+    Set<String> planned =
+        alreadyPlanned.stream()
+            .map(item -> normalizePath(item.getSourcePath()))
+            .collect(java.util.stream.Collectors.toSet());
+    Pattern pattern =
+        Pattern.compile(
+            "(?i)^(?:season[ ._-]*(\\d{1,2})|s(\\d{1,2}))(?:["
+                + " ._-]*(poster|fanart|banner|landscape|folder|season))?(\\.[^.]+)$");
+    List<RenameItem> result = new ArrayList<>();
+    for (OpenlistApiService.OpenlistFile entry : entries) {
+      if (!"file".equals(entry.getType())
+          || planned.contains(normalizePath(entry.getPath()))
+          || !normalizePath(selectedPath).equals(normalizePath(parentPath(entry.getPath())))) {
+        continue;
+      }
+      var matcher = pattern.matcher(entry.getName());
+      if (!matcher.matches()) {
+        continue;
+      }
+      String extension = matcher.group(4).toLowerCase(Locale.ROOT);
+      if (!IMAGE_EXTENSIONS.contains(extension) && !".nfo".equals(extension)) {
+        continue;
+      }
+      int season = Integer.parseInt(matcher.group(1) != null ? matcher.group(1) : matcher.group(2));
+      String kind = matcher.group(3) == null ? "season" : matcher.group(3).toLowerCase(Locale.ROOT);
+      if (matcher.group(3) == null && !".nfo".equals(extension)) {
+        continue;
+      }
+      result.add(
+          RenameItem.builder()
+              .sourcePath(entry.getPath())
+              .sourceName(entry.getName())
+              .targetDirectory(String.format("Season %02d", season))
+              .targetName("season".equals(kind) ? "season.nfo" : kind + extension)
+              .assetType(".nfo".equals(extension) ? "nfo" : "image")
+              .build());
+    }
+    return result;
+  }
+
+  private List<String> buildDirectoriesToCreate(
+      String selectedPath,
+      List<OpenlistApiService.OpenlistFile> entries,
+      List<RenameItem> seasonDirectories,
+      List<RenameItem> files) {
+    Set<String> available =
+        seasonDirectories.stream()
+            .map(RenameItem::getTargetName)
+            .collect(java.util.stream.Collectors.toSet());
+    entries.stream()
+        .filter(entry -> "folder".equals(entry.getType()))
+        .filter(
+            entry -> normalizePath(selectedPath).equals(normalizePath(parentPath(entry.getPath()))))
+        .map(OpenlistApiService.OpenlistFile::getName)
+        .forEach(available::add);
+    return files.stream()
+        .map(RenameItem::getTargetDirectory)
+        .filter(directory -> directory != null && !available.contains(directory))
+        .distinct()
+        .sorted()
+        .toList();
+  }
+
+  private String sidecarAssetType(String name) {
+    String lower = name.toLowerCase(Locale.ROOT);
+    String extension = extension(lower);
+    if (SUBTITLE_EXTENSIONS.contains(extension)) {
+      return "subtitle";
+    }
+    if (IMAGE_EXTENSIONS.contains(extension)) {
+      return "image";
+    }
+    return ".nfo".equals(extension) ? "nfo" : null;
+  }
+
+  private List<RenameItem> matchingVideos(String sidecarName, List<RenameItem> videos) {
+    String sidecarBase = stripExtension(sidecarName).toLowerCase(Locale.ROOT);
+    List<RenameItem> basenameMatches =
+        videos.stream()
+            .filter(
+                video ->
+                    startsWithMediaBase(
+                        sidecarBase,
+                        stripExtension(video.getSourceName()).toLowerCase(Locale.ROOT)))
+            .toList();
+    if (basenameMatches.size() == 1) {
+      return basenameMatches;
+    }
+    String marker = episodeMarker(sidecarName);
+    if (marker == null) {
+      return List.of();
+    }
+    return videos.stream()
+        .filter(video -> marker.equals(episodeMarker(video.getSourceName())))
+        .toList();
+  }
+
+  private boolean startsWithMediaBase(String candidate, String mediaBase) {
+    if (!candidate.startsWith(mediaBase)) {
+      return false;
+    }
+    return candidate.length() == mediaBase.length()
+        || ".-_ []()".indexOf(candidate.charAt(mediaBase.length())) >= 0;
+  }
+
+  private String sidecarTargetName(String sourceName, RenameItem video) {
+    String sourceBase = stripExtension(sourceName);
+    String sourceVideoBase = stripExtension(video.getSourceName());
+    String suffix;
+    if (startsWithMediaBase(
+        sourceBase.toLowerCase(Locale.ROOT), sourceVideoBase.toLowerCase(Locale.ROOT))) {
+      suffix = sourceBase.substring(sourceVideoBase.length());
+    } else {
+      var matcher = EPISODE_MARKER.matcher(sourceBase);
+      suffix = matcher.find() ? sourceBase.substring(matcher.end()) : "";
+    }
+    return stripExtension(video.getTargetName()) + suffix + extension(sourceName);
+  }
+
+  private String episodeMarker(String name) {
+    var matcher = EPISODE_MARKER.matcher(stripExtension(name));
+    if (!matcher.find()) {
+      return null;
+    }
+    return matcher.group().replaceAll("[ ._-]", "").toLowerCase(Locale.ROOT);
   }
 
   private List<RenameItem> buildSeasonDirectoryRenames(
@@ -925,8 +1098,12 @@ public class ManualScrapingService {
       OpenlistConfig config,
       String selectedPath,
       RenamePlan renamePlan,
-      List<OpenlistApiService.OpenlistFile> entries) {
-    String parent = parentPath(selectedPath);
+      List<OpenlistApiService.OpenlistFile> entries,
+      boolean resumingRename) {
+    String organizationRoot =
+        renamePlan.organizeFlatMovie() ? parentPath(selectedPath) : selectedPath;
+    String parent =
+        renamePlan.organizeFlatMovie() ? normalizePath(organizationRoot) : parentPath(selectedPath);
     boolean directoryCollision =
         openlistApiService.getDirectoryContents(config, parent).stream()
             .anyMatch(
@@ -934,11 +1111,18 @@ public class ManualScrapingService {
                     "folder".equals(entry.getType())
                         && renamePlan.directoryName().equals(entry.getName())
                         && !selectedPath.equals(entry.getPath()));
-    if (directoryCollision) {
+    if (directoryCollision && !(renamePlan.organizeFlatMovie() && resumingRename)) {
       throw renameFailure(true, "媒体目录", selectedPath, renamePlan.directoryName(), "目标文件夹已存在");
     }
 
     Set<String> paths = entryPaths(entries);
+    Map<String, String> pathTypes =
+        entries.stream()
+            .collect(
+                java.util.stream.Collectors.toMap(
+                    entry -> normalizePath(entry.getPath()),
+                    OpenlistApiService.OpenlistFile::getType,
+                    (left, right) -> left));
     Map<String, String> seasonTargets = new LinkedHashMap<>();
     for (RenameItem item : renamePlan.seasonDirectories()) {
       String existingSource =
@@ -960,20 +1144,62 @@ public class ManualScrapingService {
       }
     }
 
+    for (String directory : renamePlan.directoriesToCreate()) {
+      String targetPath = normalizePath(join(organizationRoot, directory));
+      if (paths.contains(targetPath) && !"folder".equals(pathTypes.get(targetPath))) {
+        throw renameFailure(true, "季目录", selectedPath, directory, "目标路径已存在同名文件");
+      }
+    }
+
     Set<String> plannedFileTargets = new HashSet<>();
     for (RenameItem item : renamePlan.files()) {
-      String itemParent = parentPath(item.getSourcePath());
+      String itemParent =
+          item.getTargetDirectory() == null
+              ? parentPath(item.getSourcePath())
+              : join(organizationRoot, item.getTargetDirectory());
       String targetPath = normalizePath(join(itemParent, item.getTargetName()));
       if (!plannedFileTargets.add(targetPath.toLowerCase(Locale.ROOT))) {
         throw renameFailure(
             false, "媒体文件", item.getSourcePath(), item.getTargetName(), "多个媒体文件会重命名为同一目标");
       }
-      if (!item.getSourceName().equals(item.getTargetName())
+      String moveTargetPath =
+          item.getTargetDirectory() == null
+              ? targetPath
+              : normalizePath(join(itemParent, item.getSourceName()));
+      String physicalMoveTargetPath =
+          item.getTargetDirectory() == null
+              ? null
+              : physicalTargetPath(
+                  organizationRoot, item, renamePlan.seasonDirectories(), item.getSourceName());
+      if (!normalizePath(item.getSourcePath()).equals(targetPath)
           && paths.contains(normalizePath(item.getSourcePath()))
-          && paths.contains(targetPath)) {
-        throw renameFailure(false, "媒体文件", item.getSourcePath(), item.getTargetName(), "目标媒体文件已存在");
+          && (paths.contains(targetPath)
+              || paths.contains(moveTargetPath)
+              || (physicalMoveTargetPath != null && paths.contains(physicalMoveTargetPath))
+              || paths.contains(
+                  physicalTargetPath(organizationRoot, item, renamePlan.seasonDirectories())))) {
+        throw renameFailure(false, "媒体文件", item.getSourcePath(), targetPath, "目标媒体文件已存在");
       }
     }
+  }
+
+  private String physicalTargetPath(
+      String selectedPath, RenameItem item, List<RenameItem> seasonDirectories) {
+    return physicalTargetPath(selectedPath, item, seasonDirectories, item.getTargetName());
+  }
+
+  private String physicalTargetPath(
+      String selectedPath, RenameItem item, List<RenameItem> seasonDirectories, String fileName) {
+    if (item.getTargetDirectory() == null) {
+      return normalizePath(join(parentPath(item.getSourcePath()), fileName));
+    }
+    String physicalDirectory =
+        seasonDirectories.stream()
+            .filter(season -> item.getTargetDirectory().equals(season.getTargetName()))
+            .map(RenameItem::getSourceName)
+            .findFirst()
+            .orElse(item.getTargetDirectory());
+    return normalizePath(join(join(selectedPath, physicalDirectory), fileName));
   }
 
   private RenameExecutionResult executeRenamePlan(
@@ -990,36 +1216,37 @@ public class ManualScrapingService {
     List<RenameOperation> operations = buildRenameOperations(originalPath, renamePlan);
     Set<String> currentPaths = entryPaths(entries);
     currentPaths.add(normalizePath(selectedPath));
-    String finalRoot = normalizePath(join(parentPath(originalPath), renamePlan.directoryName()));
+    String operationRoot =
+        renamePlan.organizeFlatMovie()
+            ? normalizePath(parentPath(originalPath))
+            : normalizePath(join(parentPath(originalPath), renamePlan.directoryName()));
+    String completedRoot =
+        renamePlan.organizeFlatMovie()
+            ? normalizePath(join(operationRoot, renamePlan.directoryName()))
+            : operationRoot;
     int directoryCount = checkpointDirectoryCount;
     int fileCount = checkpointFileCount;
     int operationIndex = Math.max(0, Math.min(checkpointOperationIndex, operations.size()));
 
     for (int index = operationIndex; index < operations.size(); index++) {
       RenameOperation operation = operations.get(index);
-      String sourcePath = operationSourcePath(operation, originalPath, finalRoot, renamePlan);
+      String sourcePath = operationSourcePath(operation, originalPath, operationRoot, renamePlan);
       try {
-        renamePathIdempotently(
-            context.openlistConfig(),
-            sourcePath,
-            operation.item().getTargetName(),
-            operation.directory(),
-            currentPaths);
+        executeRenameOperation(
+            context.openlistConfig(), operation, sourcePath, operationRoot, currentPaths);
       } catch (RenameOperationException e) {
         throw e;
       } catch (Exception e) {
         throw renameFailure(
-            operation.directory(),
-            operation.directory()
-                ? (normalizePath(sourcePath).equals(normalizePath(originalPath)) ? "媒体目录" : "季目录")
-                : "媒体文件",
+            operation.directoryOperation(),
+            operation.scope(),
             sourcePath,
-            operation.item().getTargetName(),
+            operation.targetDescription(operationRoot),
             e.getMessage());
       }
-      if (operation.directory()) {
+      if (operation.directoryOperation()) {
         directoryCount++;
-      } else {
+      } else if (operation.completesFile()) {
         fileCount++;
       }
       operationIndex = index + 1;
@@ -1027,15 +1254,15 @@ public class ManualScrapingService {
       listener.checkpoint(
           ManualScrapingJobStage.RENAMING,
           progress,
-          "已重命名 " + directoryCount + " 个目录、" + fileCount + " 个媒体文件",
-          currentPaths.contains(finalRoot) ? finalRoot : selectedPath,
+          "已整理 " + directoryCount + " 个目录、" + fileCount + " 个媒体及伴随文件",
+          currentPaths.contains(completedRoot) ? completedRoot : selectedPath,
           directoryCount,
           fileCount,
           serializedRenamePlan,
           operationIndex);
     }
     return new RenameExecutionResult(
-        currentPaths.contains(finalRoot) ? finalRoot : selectedPath,
+        currentPaths.contains(completedRoot) ? completedRoot : selectedPath,
         directoryCount,
         fileCount,
         operationIndex);
@@ -1043,10 +1270,11 @@ public class ManualScrapingService {
 
   private List<RenameOperation> buildRenameOperations(String originalPath, RenamePlan renamePlan) {
     List<RenameOperation> operations = new ArrayList<>();
-    if (!lastSegment(originalPath).equals(renamePlan.directoryName())) {
+    if (!renamePlan.organizeFlatMovie()
+        && !lastSegment(originalPath).equals(renamePlan.directoryName())) {
       operations.add(
           new RenameOperation(
-              true,
+              OperationType.RENAME_ROOT,
               RenameItem.builder()
                   .sourcePath(originalPath)
                   .sourceName(lastSegment(originalPath))
@@ -1055,27 +1283,122 @@ public class ManualScrapingService {
     }
     renamePlan.seasonDirectories().stream()
         .filter(item -> !item.getSourceName().equals(item.getTargetName()))
-        .map(item -> new RenameOperation(true, item))
+        .map(item -> new RenameOperation(OperationType.RENAME_SEASON, item))
         .forEach(operations::add);
-    renamePlan.files().stream()
-        .filter(item -> !item.getSourceName().equals(item.getTargetName()))
-        .map(item -> new RenameOperation(false, item))
+    renamePlan.directoriesToCreate().stream()
+        .map(
+            directory ->
+                new RenameOperation(
+                    renamePlan.organizeFlatMovie() && renamePlan.directoryName().equals(directory)
+                        ? OperationType.CREATE_MEDIA_DIRECTORY
+                        : OperationType.CREATE_DIRECTORY,
+                    RenameItem.builder()
+                        .sourcePath(originalPath)
+                        .sourceName(directory)
+                        .targetName(directory)
+                        .build()))
         .forEach(operations::add);
+    for (RenameItem item : renamePlan.files()) {
+      boolean relocating = item.getTargetDirectory() != null;
+      if (relocating) {
+        operations.add(new RenameOperation(OperationType.MOVE_FILE, item));
+      }
+      if (!item.getSourceName().equals(item.getTargetName())) {
+        operations.add(
+            new RenameOperation(
+                relocating ? OperationType.RENAME_AFTER_MOVE : OperationType.RENAME_FILE, item));
+      }
+    }
     return operations;
+  }
+
+  private void executeRenameOperation(
+      OpenlistConfig config,
+      RenameOperation operation,
+      String sourcePath,
+      String finalRoot,
+      Set<String> currentPaths) {
+    switch (operation.type()) {
+      case CREATE_DIRECTORY, CREATE_MEDIA_DIRECTORY ->
+          createDirectoryIdempotently(
+              config, join(finalRoot, operation.item().getTargetName()), currentPaths);
+      case MOVE_FILE ->
+          movePathIdempotently(
+              config,
+              sourcePath,
+              join(finalRoot, operation.item().getTargetDirectory()),
+              operation.item().getSourceName(),
+              currentPaths);
+      default ->
+          renamePathIdempotently(
+              config,
+              sourcePath,
+              operation.item().getTargetName(),
+              operation.directoryOperation(),
+              currentPaths);
+    }
   }
 
   private String operationSourcePath(
       RenameOperation operation, String originalPath, String finalRoot, RenamePlan renamePlan) {
     RenameItem item = operation.item();
-    if (normalizePath(item.getSourcePath()).equals(normalizePath(originalPath))) {
+    if (operation.type() == OperationType.CREATE_DIRECTORY
+        || operation.type() == OperationType.CREATE_MEDIA_DIRECTORY) {
+      return normalizePath(join(finalRoot, item.getTargetName()));
+    }
+    if (renamePlan.organizeFlatMovie() && operation.type() == OperationType.MOVE_FILE) {
+      return normalizePath(item.getSourcePath());
+    }
+    if (operation.type() != OperationType.RENAME_AFTER_MOVE
+        && normalizePath(item.getSourcePath()).equals(normalizePath(originalPath))) {
       return normalizePath(originalPath);
     }
     String relativeParent = relativeParent(originalPath, item.getSourcePath());
-    if (!operation.directory()) {
+    if (!operation.directoryOperation()) {
       relativeParent = remapSeasonParent(relativeParent, renamePlan.seasonDirectories());
     }
     String currentParent = relativeParent.isBlank() ? finalRoot : join(finalRoot, relativeParent);
-    return normalizePath(join(currentParent, item.getSourceName()));
+    if (operation.type() == OperationType.RENAME_AFTER_MOVE) {
+      currentParent = join(finalRoot, item.getTargetDirectory());
+    }
+    String currentName = item.getSourceName();
+    return normalizePath(join(currentParent, currentName));
+  }
+
+  private void createDirectoryIdempotently(
+      OpenlistConfig config, String targetPath, Set<String> currentPaths) {
+    String normalizedTarget = normalizePath(targetPath);
+    if (currentPaths.contains(normalizedTarget)) {
+      return;
+    }
+    openlistApiService.createDirectory(config, normalizedTarget);
+    currentPaths.add(normalizedTarget);
+  }
+
+  private void movePathIdempotently(
+      OpenlistConfig config,
+      String sourcePath,
+      String targetDirectory,
+      String targetName,
+      Set<String> currentPaths) {
+    String normalizedSource = normalizePath(sourcePath);
+    String normalizedTargetDirectory = normalizePath(targetDirectory);
+    String targetPath = normalizePath(join(normalizedTargetDirectory, targetName));
+    boolean sourceExists = currentPaths.contains(normalizedSource);
+    boolean targetExists = currentPaths.contains(targetPath);
+    if (!sourceExists && targetExists) {
+      return;
+    }
+    if (sourceExists && targetExists) {
+      throw renameFailure(false, "媒体文件移动", normalizedSource, targetPath, "移动目标已存在");
+    }
+    if (!sourceExists) {
+      throw renameFailure(false, "媒体文件移动", normalizedSource, targetPath, "移动源和目标均不存在");
+    }
+    openlistApiService.moveEntries(
+        config, parentPath(normalizedSource), normalizedTargetDirectory, List.of(targetName));
+    currentPaths.remove(normalizedSource);
+    currentPaths.add(targetPath);
   }
 
   private String remapSeasonParent(String relativeParent, List<RenameItem> seasonDirectories) {
@@ -1418,11 +1741,15 @@ public class ManualScrapingService {
   }
 
   private void validateMediaDirectory(
-      MediaLibraryType libraryType,
-      String selectedPath,
-      List<OpenlistApiService.OpenlistFile> videoFiles) {
-    if (libraryType != MediaLibraryType.MOVIE) {
+      Context context, String selectedPath, List<OpenlistApiService.OpenlistFile> videoFiles) {
+    if (context.libraryType() != MediaLibraryType.MOVIE) {
       return;
+    }
+    if (isFlatMovieSelection(context, selectedPath)) {
+      return;
+    }
+    if (isMovieTaskRoot(context, selectedPath)) {
+      throw new BusinessException("请选择任务根目录下的具体平铺电影文件，每个视频会作为一部电影单独处理");
     }
     boolean hasDirectVideo =
         videoFiles.stream()
@@ -1430,6 +1757,17 @@ public class ManualScrapingService {
     if (!hasDirectVideo) {
       throw new BusinessException("请选择具体电影目录，不要选择包含多个电影的媒体库根目录");
     }
+  }
+
+  private boolean isMovieTaskRoot(Context context, String selectedPath) {
+    return context.libraryType() == MediaLibraryType.MOVIE
+        && normalizePath(context.task().getPath()).equals(normalizePath(selectedPath));
+  }
+
+  private boolean isFlatMovieSelection(Context context, String selectedPath) {
+    return context.libraryType() == MediaLibraryType.MOVIE
+        && normalizePath(context.task().getPath()).equals(normalizePath(parentPath(selectedPath)))
+        && strmFileService.isVideoFile(lastSegment(selectedPath));
   }
 
   private String requireTaskPath(TaskConfig task, String selectedPath) {
@@ -1525,9 +1863,58 @@ public class ManualScrapingService {
       TmdbTvDetail tvDetail) {}
 
   private record RenamePlan(
-      String directoryName, List<RenameItem> seasonDirectories, List<RenameItem> files) {}
+      String directoryName,
+      List<RenameItem> seasonDirectories,
+      List<String> directoriesToCreate,
+      List<RenameItem> files,
+      boolean organizeFlatMovie) {
+    private RenamePlan {
+      seasonDirectories = seasonDirectories == null ? List.of() : seasonDirectories;
+      directoriesToCreate = directoriesToCreate == null ? List.of() : directoriesToCreate;
+      files = files == null ? List.of() : files;
+    }
+  }
 
-  private record RenameOperation(boolean directory, RenameItem item) {}
+  private enum OperationType {
+    RENAME_ROOT,
+    RENAME_SEASON,
+    CREATE_MEDIA_DIRECTORY,
+    CREATE_DIRECTORY,
+    MOVE_FILE,
+    RENAME_AFTER_MOVE,
+    RENAME_FILE
+  }
+
+  private record RenameOperation(OperationType type, RenameItem item) {
+    private boolean directoryOperation() {
+      return type == OperationType.RENAME_ROOT
+          || type == OperationType.RENAME_SEASON
+          || type == OperationType.CREATE_MEDIA_DIRECTORY
+          || type == OperationType.CREATE_DIRECTORY;
+    }
+
+    private boolean completesFile() {
+      return type == OperationType.RENAME_AFTER_MOVE
+          || type == OperationType.RENAME_FILE
+          || (type == OperationType.MOVE_FILE && item.getSourceName().equals(item.getTargetName()));
+    }
+
+    private String scope() {
+      return switch (type) {
+        case RENAME_ROOT -> "媒体目录";
+        case RENAME_SEASON, CREATE_DIRECTORY -> "季目录";
+        case CREATE_MEDIA_DIRECTORY -> "媒体目录";
+        case MOVE_FILE -> "媒体文件移动";
+        case RENAME_AFTER_MOVE, RENAME_FILE -> "媒体文件";
+      };
+    }
+
+    private String targetDescription(String finalRoot) {
+      return type == OperationType.MOVE_FILE
+          ? finalRoot + "/" + item.getTargetDirectory() + "/" + item.getTargetName()
+          : item.getTargetName();
+    }
+  }
 
   private record RenameExecutionResult(
       String finalDirectoryPath,
@@ -1550,14 +1937,6 @@ public class ManualScrapingService {
       Map<String, String> rootDirectoryFingerprint) {}
 
   private record GeneratedFile(Path localPath, String remoteName, String contentType) {}
-
-  public record AutoRenameResult(
-      boolean matched,
-      String finalDirectoryPath,
-      int renamedDirectoryCount,
-      int renamedFileCount,
-      String message,
-      NotificationIssue issue) {}
 
   @FunctionalInterface
   public interface JobProgressListener {

@@ -38,3 +38,7 @@ dev -> beta -> main
 - 合并到 `main`：读取 `release_version`，发布正式镜像标签、更新 `latest`，并创建正式 GitHub Release。
 
 如果 PR 的 head/base 与上述规则不一致，必须停止发布并修正分支关系；在确认正确之前不得合并。不得通过直接 push、网页直接编辑或本地直接提交绕过 PR 流程修改 `beta` 或 `main`。
+
+## Go 重写分支发行补充
+
+Go 版本继续严格遵守上述 dev -> beta -> main 规则。原生程序使用 `.github/workflows/go-ci.yml` 构建并验证六个平台，`.github/workflows/release.yml` 在合法 PR 合并后发布对应 beta 或正式原生安装包。上述 Docker 发布说明是上游 Java 版本的历史流程；Go 分支不依赖 Docker 工作流发布原生程序。不要将 dev artifacts 当成正式 Release，也不要跳过原生安装检查。

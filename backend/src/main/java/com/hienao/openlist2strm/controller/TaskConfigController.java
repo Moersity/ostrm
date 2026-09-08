@@ -223,7 +223,7 @@ public class TaskConfigController {
 
   /** 获取手动刮削目录树 */
   @GetMapping("/{id}/manual-scraping/tree")
-  @Operation(summary = "获取手动刮削目录树", description = "只读取任务根目录的直接子目录和本层媒体文件数量")
+  @Operation(summary = "获取手动刮削目录树", description = "只读取任务根目录的直接子目录和本层媒体文件；电影任务会将根目录视频作为独立可选节点")
   public ResponseEntity<ApiResponse<DirectoryTree>> getManualScrapingTree(
       @Parameter(description = "任务配置ID", required = true) @PathVariable Long id) {
     return ResponseEntity.ok(ApiResponse.success(manualScrapingService.getDirectoryTree(id)));
@@ -241,7 +241,7 @@ public class TaskConfigController {
 
   /** 识别所选目录并返回刮削预览 */
   @PostMapping("/{id}/manual-scraping/preview")
-  @Operation(summary = "预览手动刮削", description = "识别所选媒体目录并返回TMDB信息、重命名和上传文件预览")
+  @Operation(summary = "预览手动刮削", description = "识别所选媒体目录或平铺电影文件，并返回TMDB信息、重命名和上传文件预览")
   public ResponseEntity<ApiResponse<Preview>> previewManualScraping(
       @Parameter(description = "任务配置ID", required = true) @PathVariable Long id,
       @Valid @RequestBody PreviewRequest request) {

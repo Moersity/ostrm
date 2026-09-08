@@ -158,14 +158,11 @@
               </div>
             </div>
 
+            <TaskRunStatus :task-id="task.id" />
             <div class="mt-3 flex items-center space-x-4 flex-wrap gap-y-2">
               <label class="flex items-center text-sm text-white/60">
                 <input type="checkbox" :checked="task.needScrap" disabled class="mr-2 h-4 w-4 rounded border-white/20 bg-white/5 text-blue-500">
                 需要刮削
-              </label>
-              <label class="flex items-center text-sm text-white/60">
-                <input type="checkbox" :checked="task.autoRenameMedia" disabled class="mr-2 h-4 w-4 rounded border-white/20 bg-white/5 text-blue-500">
-                自动重命名媒体
               </label>
               <label class="flex items-center text-sm text-white/60">
                 <input type="checkbox" :checked="task.isIncrement" disabled class="mr-2 h-4 w-4 rounded border-white/20 bg-white/5 text-blue-500">
@@ -257,13 +254,8 @@
 
               <div>
                 <label class="block text-sm text-white/70 mb-2">STRM路径</label>
-                <div class="flex">
-                  <span class="inline-flex items-center px-3 rounded-l-xl border border-r-0 border-white/10 bg-white/5 text-white/50 text-sm">
-                    /app/backend/strm/
-                  </span>
-                  <input v-model="strmSubPath" type="text" placeholder="子路径（可选）" class="input-field rounded-l-none">
-                </div>
-                <p class="mt-1 text-xs text-white/30">前缀 /app/backend/strm/ 固定不可修改</p>
+                <input v-model="strmSubPath" type="text" placeholder="完整本地路径，或相对默认输出目录的子路径" class="input-field">
+                <p class="mt-1 text-xs text-white/30">支持 Windows、macOS 和 Linux 路径；留空按任务名称创建目录。</p>
               </div>
 
               <div>
@@ -356,29 +348,12 @@
               </div>
 
               <div class="space-y-3">
+                <label class="mb-3 flex items-start gap-2 text-sm text-amber-200"><input v-model="taskForm.autoRenameMedia" type="checkbox" class="mt-1">自动整理远端媒体（会重命名 OpenList 中的目录和文件，默认关闭）</label>
                 <label class="flex items-start cursor-pointer">
                   <input v-model="taskForm.needScrap" type="checkbox" class="mt-1 h-4 w-4 rounded border-white/20 bg-white/5 text-blue-500">
                   <span class="ml-2 text-sm text-white/70">
                     需要刮削
                     <span class="block text-xs text-white/40 mt-0.5">启用TMDB刮削功能，生成NFO和封面</span>
-                  </span>
-                </label>
-
-                <label
-                  class="flex items-start"
-                  :class="!taskForm.needScrap || taskForm.libraryType === 'auto' || !taskForm.libraryType ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'"
-                >
-                  <input
-                    v-model="taskForm.autoRenameMedia"
-                    type="checkbox"
-                    :disabled="!taskForm.needScrap || taskForm.libraryType === 'auto' || !taskForm.libraryType"
-                    class="mt-1 h-4 w-4 rounded border-white/20 bg-white/5 text-blue-500"
-                  >
-                  <span class="ml-2 text-sm text-white/70">
-                    普通任务自动重命名媒体
-                    <span class="block text-xs text-white/40 mt-0.5">
-                      执行任务时根据 TMDB 结果重命名 OpenList 媒体目录和文件，默认关闭；需要 OpenList 写入权限
-                    </span>
                   </span>
                 </label>
 
@@ -395,7 +370,7 @@
                   <span class="ml-2 text-sm text-white/70">
                     跳过目录结构不符合的视频
                     <span class="block text-xs text-white/40 mt-0.5">
-                      执行时不生成 STRM、也不刮削；增量任务会清理此前生成的异常文件
+                      执行时跳过异常目录；已有输出保留，避免过滤设置变化造成误删
                     </span>
                   </span>
                 </label>
@@ -672,10 +647,9 @@ const taskForm = ref({
   taskName: '',
   path: '',
   libraryType: '',
-  strmPath: '/app/backend/strm',
+  strmPath: '',
   cron: '',
-  needScrap: false,
-  autoRenameMedia: false,
+  autoRenameMedia: false, needScrap: false,
   skipInvalidStructure: false,
   renameRegex: '',
   mediaServerConfigId: null,
@@ -693,15 +667,6 @@ const libraryConfirmedStale = computed(() =>
   libraryLoadState.value === 'success' &&
   Boolean(taskForm.value.mediaLibraryId) &&
   !mediaLibraries.value.some(library => library.id === taskForm.value.mediaLibraryId)
-)
-
-watch(
-  [() => taskForm.value.needScrap, () => taskForm.value.libraryType],
-  ([needScrap, libraryType]) => {
-    if (!needScrap || !libraryType || libraryType === 'auto') {
-      taskForm.value.autoRenameMedia = false
-    }
-  }
 )
 
 const getConfigInfo = async () => {
@@ -789,8 +754,8 @@ const onMediaLibraryChange = () => {
 
 const resetTaskForm = () => {
   taskForm.value = {
-    taskName: '', path: '', strmPath: '/app/backend/strm', cron: '',
-    libraryType: '', needScrap: false, autoRenameMedia: false, skipInvalidStructure: false,
+    taskName: '', path: '', strmPath: '', cron: '',
+    libraryType: '', autoRenameMedia: false, needScrap: false, skipInvalidStructure: false,
     renameRegex: '', mediaServerConfigId: null, mediaRefreshScope: 'NONE', mediaLibraryId: '',
     mediaLibraryName: '', isIncrement: true, isActive: true
   }
@@ -802,15 +767,13 @@ const editTask = (task) => {
   editingTaskId.value = task.id
   taskForm.value = {
     taskName: task.taskName, path: task.path, strmPath: task.strmPath,
-    libraryType: task.libraryType || 'auto', cron: task.cron || '', needScrap: task.needScrap || false,
-    autoRenameMedia: task.autoRenameMedia || false,
+    libraryType: task.libraryType || 'auto', cron: task.cron || '', autoRenameMedia: task.autoRenameMedia || false, needScrap: task.needScrap || false,
     skipInvalidStructure: task.libraryType && task.libraryType !== 'auto' ? task.skipInvalidStructure || false : false,
     renameRegex: task.renameRegex || '', mediaServerConfigId: task.mediaServerConfigId || null,
     mediaRefreshScope: task.mediaRefreshScope || 'NONE', mediaLibraryId: task.mediaLibraryId || '',
     mediaLibraryName: task.mediaLibraryName || '', isIncrement: task.isIncrement, isActive: task.isActive
   }
-  const prefix = '/app/backend/strm/'
-  strmSubPath.value = task.strmPath?.startsWith(prefix) ? task.strmPath.substring(prefix.length) : ''
+  strmSubPath.value = task.strmPath || ''
   showEditTaskModal.value = true
   if (taskForm.value.mediaRefreshScope === 'LIBRARY' && taskForm.value.mediaServerConfigId) loadMediaLibraries()
 }
@@ -842,12 +805,9 @@ const submitTask = async () => {
       throw new Error('已保存的媒体库已失效，请重新选择媒体库后再保存')
     }
     if (taskForm.value.path) await validateTaskPath(taskForm.value.path)
-    const fullStrmPath = '/app/backend/strm/' + (strmSubPath.value || '')
+    const fullStrmPath = strmSubPath.value || ''
     const taskData = {
       ...taskForm.value,
-      autoRenameMedia: taskForm.value.needScrap && taskForm.value.libraryType !== 'auto'
-        ? taskForm.value.autoRenameMedia
-        : false,
       skipInvalidStructure: taskForm.value.libraryType === 'auto' ? false : taskForm.value.skipInvalidStructure,
       strmPath: fullStrmPath,
       openlistConfigId: parseInt(configId)

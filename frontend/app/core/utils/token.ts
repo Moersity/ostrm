@@ -56,6 +56,7 @@ export function parseJwtPayload(token: string): JwtPayload {
   }
   
   const payload = parts[1]
+  if (!payload) throw new Error('Missing JWT payload')
   const decoded = atob(payload.replace(/-/g, '+').replace(/_/g, '/'))
   return JSON.parse(decoded) as JwtPayload
 }

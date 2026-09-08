@@ -87,9 +87,12 @@ class ManualScrapingServiceTest {
 
     assertEquals(1, result.getTree().getVideoFileCount());
     assertTrue(result.getTree().isChildrenLoaded());
-    assertEquals(2, result.getTree().getChildren().size());
+    assertEquals(3, result.getTree().getChildren().size());
     assertEquals("Empty", result.getTree().getChildren().get(0).getName());
     assertFalse(result.getTree().getChildren().get(0).isChildrenLoaded());
+    assertEquals("root.mkv", result.getTree().getChildren().get(2).getName());
+    assertTrue(result.getTree().getChildren().get(2).isMediaFile());
+    assertTrue(result.getTree().getChildren().get(2).isChildrenLoaded());
     verify(openlistApiService).getDirectoryContents(config, "/movies");
     verify(openlistApiService, never()).getAllFilesRecursively(config, "/movies");
   }
@@ -167,6 +170,241 @@ class ManualScrapingServiceTest {
   }
 
   @Test
+  void organizesSingleFlatMovieWithRelatedAssetsIntoNewDirectory() {
+    stubMovieTask();
+    OpenlistConfig config = openlistConfigService.getById(3L);
+    List<OpenlistApiService.OpenlistFile> rootEntries =
+        List.of(
+            entry("Film.mkv", "/movies/Film.mkv", "file"),
+            entry("Film.zh-CN.ass", "/movies/Film.zh-CN.ass", "file"),
+            entry("Film-poster.jpg", "/movies/Film-poster.jpg", "file"),
+            entry("Film.nfo", "/movies/Film.nfo", "file"),
+            entry("Existing Movie", "/movies/Existing Movie", "folder"));
+    when(openlistApiService.getDirectoryContents(config, "/movies")).thenReturn(rootEntries);
+    when(strmFileService.isVideoFile(anyString()))
+        .thenAnswer(invocation -> invocation.getArgument(0, String.class).endsWith(".mkv"));
+    TmdbMovieDetail detail = new TmdbMovieDetail();
+    detail.setId(123);
+    detail.setTitle("Film");
+    detail.setReleaseDate("2026-01-01");
+    when(tmdbApiService.getMovieDetail(123)).thenReturn(detail);
+
+    PreviewRequest previewRequest = new PreviewRequest();
+    previewRequest.setDirectoryPath("/movies/Film.mkv");
+    previewRequest.setTmdbId(123);
+    Preview preview = service.preview(7L, previewRequest);
+
+    String targetDirectory = "Film (2026) {tmdbid-123}";
+    assertEquals(List.of(targetDirectory), preview.getProposedDirectoryCreates());
+    assertEquals(4, preview.getProposedFileRenames().size());
+    assertTrue(
+        preview.getProposedFileRenames().stream()
+            .allMatch(item -> targetDirectory.equals(item.getTargetDirectory())));
+    assertTrue(
+        preview.getProposedFileRenames().stream()
+            .anyMatch(
+                item ->
+                    "Film-poster.jpg".equals(item.getSourceName())
+                        && (targetDirectory + "-poster.jpg").equals(item.getTargetName())
+                        && "image".equals(item.getAssetType())));
+    verify(openlistApiService, never()).getAllFilesRecursively(config, "/movies");
+
+    var executeRequest = new com.hienao.openlist2strm.dto.task.ManualScrapingDtos.ExecuteRequest();
+    executeRequest.setDirectoryPath("/movies/Film.mkv");
+    executeRequest.setMediaType("movie");
+    executeRequest.setTmdbId(123);
+    executeRequest.setRenameMedia(true);
+    var result = service.execute(7L, executeRequest);
+
+    String finalRoot = "/movies/" + targetDirectory;
+    InOrder order = inOrder(openlistApiService);
+    order.verify(openlistApiService).createDirectory(config, finalRoot);
+    order.verify(openlistApiService).moveEntries(config, "/movies", finalRoot, List.of("Film.mkv"));
+    order
+        .verify(openlistApiService)
+        .renameEntry(config, finalRoot + "/Film.mkv", targetDirectory + ".mkv");
+    order
+        .verify(openlistApiService)
+        .moveEntries(config, "/movies", finalRoot, List.of("Film.zh-CN.ass"));
+    order
+        .verify(openlistApiService)
+        .renameEntry(config, finalRoot + "/Film.zh-CN.ass", targetDirectory + ".zh-CN.ass");
+    order
+        .verify(openlistApiService)
+        .moveEntries(config, "/movies", finalRoot, List.of("Film-poster.jpg"));
+    order
+        .verify(openlistApiService)
+        .renameEntry(config, finalRoot + "/Film-poster.jpg", targetDirectory + "-poster.jpg");
+    order.verify(openlistApiService).moveEntries(config, "/movies", finalRoot, List.of("Film.nfo"));
+    order
+        .verify(openlistApiService)
+        .renameEntry(config, finalRoot + "/Film.nfo", targetDirectory + ".nfo");
+    assertEquals(finalRoot, result.getFinalDirectoryPath());
+    assertEquals(1, result.getRenamedDirectoryCount());
+    assertEquals(4, result.getRenamedFileCount());
+  }
+
+  @Test
+  void previewsOneOfMultipleFlatMoviesIndependently() {
+    stubMovieTask();
+    OpenlistConfig config = openlistConfigService.getById(3L);
+    when(openlistApiService.getDirectoryContents(config, "/movies"))
+        .thenReturn(
+            List.of(
+                entry("Film A.mkv", "/movies/Film A.mkv", "file"),
+                entry("Film A.zh-CN.ass", "/movies/Film A.zh-CN.ass", "file"),
+                entry("Film B.mkv", "/movies/Film B.mkv", "file"),
+                entry("Film B-poster.jpg", "/movies/Film B-poster.jpg", "file")));
+    when(strmFileService.isVideoFile(anyString()))
+        .thenAnswer(invocation -> invocation.getArgument(0, String.class).endsWith(".mkv"));
+    TmdbMovieDetail detail = new TmdbMovieDetail();
+    detail.setId(123);
+    detail.setTitle("Film A");
+    detail.setReleaseDate("2026-01-01");
+    when(tmdbApiService.getMovieDetail(123)).thenReturn(detail);
+
+    PreviewRequest request = new PreviewRequest();
+    request.setDirectoryPath("/movies/Film A.mkv");
+    request.setTmdbId(123);
+
+    Preview preview = service.preview(7L, request);
+
+    assertEquals(1, preview.getVideoFileCount());
+    assertTrue(preview.isOrganizeFlatMovie());
+    assertTrue(
+        preview.getProposedFileRenames().stream()
+            .anyMatch(item -> "Film A.mkv".equals(item.getSourceName())));
+    assertTrue(
+        preview.getProposedFileRenames().stream()
+            .anyMatch(item -> "Film A.zh-CN.ass".equals(item.getSourceName())));
+    assertFalse(
+        preview.getProposedFileRenames().stream()
+            .anyMatch(
+                item ->
+                    "Film B.mkv".equals(item.getSourceName())
+                        || "Film B-poster.jpg".equals(item.getSourceName())));
+    verify(openlistApiService, never()).getAllFilesRecursively(config, "/movies");
+  }
+
+  @Test
+  void asksForSpecificFlatMovieInsteadOfTaskRoot() {
+    stubMovieTask();
+    OpenlistConfig config = openlistConfigService.getById(3L);
+    when(openlistApiService.getDirectoryContents(config, "/movies"))
+        .thenReturn(List.of(entry("Film.mkv", "/movies/Film.mkv", "file")));
+    when(strmFileService.isVideoFile("Film.mkv")).thenReturn(true);
+
+    PreviewRequest request = new PreviewRequest();
+    request.setDirectoryPath("/movies");
+
+    BusinessException error =
+        assertThrows(BusinessException.class, () -> service.preview(7L, request));
+
+    assertTrue(error.getMessage().contains("具体平铺电影文件"));
+  }
+
+  @Test
+  void rejectsExistingFlatMovieTargetDirectory() {
+    stubMovieTask();
+    OpenlistConfig config = openlistConfigService.getById(3L);
+    TmdbMovieDetail detail = new TmdbMovieDetail();
+    detail.setId(123);
+    detail.setTitle("Film");
+    detail.setReleaseDate("2026-01-01");
+    when(tmdbApiService.getMovieDetail(123)).thenReturn(detail);
+    when(strmFileService.isVideoFile("Film.mkv")).thenReturn(true);
+    when(openlistApiService.getDirectoryContents(config, "/movies"))
+        .thenReturn(List.of(entry("Film.mkv", "/movies/Film.mkv", "file")))
+        .thenReturn(
+            List.of(
+                entry("Film.mkv", "/movies/Film.mkv", "file"),
+                entry("Film (2026) {tmdbid-123}", "/movies/Film (2026) {tmdbid-123}", "folder")));
+    when(openlistApiService.getAllFilesRecursively(config, "/movies/Film (2026) {tmdbid-123}"))
+        .thenReturn(List.of());
+
+    PreviewRequest previewRequest = new PreviewRequest();
+    previewRequest.setDirectoryPath("/movies/Film.mkv");
+    previewRequest.setTmdbId(123);
+    service.preview(7L, previewRequest);
+
+    var executeRequest = new com.hienao.openlist2strm.dto.task.ManualScrapingDtos.ExecuteRequest();
+    executeRequest.setDirectoryPath("/movies/Film.mkv");
+    executeRequest.setMediaType("movie");
+    executeRequest.setTmdbId(123);
+    executeRequest.setRenameMedia(true);
+
+    BusinessException error =
+        assertThrows(BusinessException.class, () -> service.execute(7L, executeRequest));
+
+    assertTrue(error.getMessage().contains("目标文件夹已存在"));
+    verify(openlistApiService, never())
+        .moveEntries(eq(config), anyString(), anyString(), org.mockito.ArgumentMatchers.anyList());
+  }
+
+  @Test
+  void resumesFlatMovieOrganizationAfterDirectoryWasCreated() {
+    stubMovieTask();
+    OpenlistConfig config = openlistConfigService.getById(3L);
+    String targetName = "Film (2026) {tmdbid-123}";
+    String finalRoot = "/movies/" + targetName;
+    TmdbMovieDetail detail = new TmdbMovieDetail();
+    detail.setId(123);
+    detail.setTitle("Film");
+    detail.setReleaseDate("2026-01-01");
+    when(tmdbApiService.getMovieDetail(123)).thenReturn(detail);
+    when(strmFileService.isVideoFile("Film.mkv")).thenReturn(true);
+    when(openlistApiService.getDirectoryContents(config, "/movies"))
+        .thenReturn(
+            List.of(
+                entry("Film.mkv", "/movies/Film.mkv", "file"),
+                entry(targetName, finalRoot, "folder")));
+    when(openlistApiService.getAllFilesRecursively(config, finalRoot)).thenReturn(List.of());
+
+    String persistedPlan =
+        "{\"directoryName\":\""
+            + targetName
+            + "\",\"seasonDirectories\":[],\"directoriesToCreate\":[\""
+            + targetName
+            + "\"],\"files\":[{\"sourcePath\":\"/movies/Film.mkv\","
+            + "\"sourceName\":\"Film.mkv\",\"targetDirectory\":\""
+            + targetName
+            + "\",\"targetName\":\""
+            + targetName
+            + ".mkv\",\"assetType\":\"video\"}],\"organizeFlatMovie\":true}";
+    ManualScrapingJob job =
+        new ManualScrapingJob()
+            .setId(100L)
+            .setTaskId(7L)
+            .setDirectoryPath("/movies/Film.mkv")
+            .setFinalDirectoryPath(finalRoot)
+            .setMediaType("movie")
+            .setTmdbId(123)
+            .setRenameMedia(true)
+            .setStage(ManualScrapingJobStage.RENAMING.name())
+            .setRenamePlan(persistedPlan)
+            .setRenameOperationIndex(1)
+            .setRenamedDirectoryCount(1)
+            .setRenamedFileCount(0);
+
+    var result =
+        service.executeJob(
+            job,
+            (stage,
+                progress,
+                message,
+                finalPath,
+                directoryCount,
+                fileCount,
+                renamePlan,
+                operationIndex) -> {});
+
+    verify(openlistApiService, never()).createDirectory(config, finalRoot);
+    verify(openlistApiService).moveEntries(config, "/movies", finalRoot, List.of("Film.mkv"));
+    verify(openlistApiService).renameEntry(config, finalRoot + "/Film.mkv", targetName + ".mkv");
+    assertEquals(finalRoot, result.getFinalDirectoryPath());
+  }
+
+  @Test
   void keepsAlreadyRenamedFileReservedWhenRecoveringMultiFileMovie() {
     stubMovieTask();
     OpenlistConfig config = openlistConfigService.getById(3L);
@@ -177,7 +415,8 @@ class ManualScrapingServiceTest {
             List.of(
                 entry("B.mkv", directory + "/B.mkv", "file"),
                 entry(targetBase + ".mkv", directory + "/" + targetBase + ".mkv", "file")));
-    when(strmFileService.isVideoFile(anyString())).thenReturn(true);
+    when(strmFileService.isVideoFile(anyString()))
+        .thenAnswer(invocation -> invocation.getArgument(0, String.class).endsWith(".mkv"));
     TmdbMovieDetail detail = new TmdbMovieDetail();
     detail.setId(123);
     detail.setTitle("Film");
@@ -192,34 +431,6 @@ class ManualScrapingServiceTest {
 
     assertEquals(targetBase + " - 02.mkv", preview.getProposedFileRenames().get(0).getTargetName());
     assertEquals(targetBase + ".mkv", preview.getProposedFileRenames().get(1).getTargetName());
-  }
-
-  @Test
-  void taskExecutionAutoRenameOnlyRenamesMedia() {
-    stubMovieTask();
-    OpenlistConfig config = openlistConfigService.getById(3L);
-    String directory = "/movies/Film (2026) {tmdbid-123}";
-    when(openlistApiService.getAllFilesRecursively(config, directory))
-        .thenReturn(List.of(entry("raw.mkv", directory + "/raw.mkv", "file")));
-    when(openlistApiService.getDirectoryContents(config, "/movies"))
-        .thenReturn(List.of(entry(lastSegment(directory), directory, "folder")));
-    when(strmFileService.isVideoFile("raw.mkv")).thenReturn(true);
-    TmdbMovieDetail detail = new TmdbMovieDetail();
-    detail.setId(123);
-    detail.setTitle("Film");
-    detail.setReleaseDate("2026-01-01");
-    when(tmdbApiService.getMovieDetail(123)).thenReturn(detail);
-
-    var result = service.autoRenameForTaskExecution(7L, directory);
-
-    verify(openlistApiService)
-        .renameEntry(config, directory + "/raw.mkv", "Film (2026) {tmdbid-123}.mkv");
-    verify(openlistApiService, never())
-        .uploadFile(
-            eq(config), anyString(), org.mockito.ArgumentMatchers.any(Path.class), anyString());
-    assertTrue(result.matched());
-    assertEquals(0, result.renamedDirectoryCount());
-    assertEquals(1, result.renamedFileCount());
   }
 
   @Test
@@ -239,6 +450,96 @@ class ManualScrapingServiceTest {
     assertEquals("Season 01", preview.getProposedDirectoryRenames().get(1).getTargetName());
     assertEquals("Season 02", preview.getProposedDirectoryRenames().get(2).getTargetName());
     assertEquals("Show - S01E01.mkv", preview.getProposedFileRenames().get(0).getTargetName());
+  }
+
+  @Test
+  void previewsFlatEpisodesWithImagesSubtitlesAndNfoAsSeasonMediaGroups() {
+    stubTvTaskWithEntries(
+        List.of(
+            entry("Show.S01E01.mkv", "/tv/Show/Show.S01E01.mkv", "file"),
+            entry("Show.S01E01.zh-CN.ass", "/tv/Show/Show.S01E01.zh-CN.ass", "file"),
+            entry("Show.S01E01-thumb.jpg", "/tv/Show/Show.S01E01-thumb.jpg", "file"),
+            entry("Show.S01E01.nfo", "/tv/Show/Show.S01E01.nfo", "file"),
+            entry("S01-poster.jpg", "/tv/Show/S01-poster.jpg", "file"),
+            entry("poster.jpg", "/tv/Show/poster.jpg", "file"),
+            entry("tvshow.nfo", "/tv/Show/tvshow.nfo", "file")));
+    when(tmdbApiService.getTvDetail(1399)).thenReturn(tvDetail());
+
+    PreviewRequest request = new PreviewRequest();
+    request.setDirectoryPath("/tv/Show");
+    request.setTmdbId(1399);
+
+    Preview preview = service.preview(7L, request);
+
+    assertEquals(List.of("Season 01"), preview.getProposedDirectoryCreates());
+    assertTrue(
+        preview.getProposedFileRenames().stream()
+            .anyMatch(
+                item ->
+                    "Show.S01E01.mkv".equals(item.getSourceName())
+                        && "Season 01".equals(item.getTargetDirectory())
+                        && "Show - S01E01.mkv".equals(item.getTargetName())));
+    assertTrue(
+        preview.getProposedFileRenames().stream()
+            .anyMatch(
+                item ->
+                    "Show.S01E01-thumb.jpg".equals(item.getSourceName())
+                        && "Show - S01E01-thumb.jpg".equals(item.getTargetName())
+                        && "image".equals(item.getAssetType())));
+    assertTrue(
+        preview.getProposedFileRenames().stream()
+            .anyMatch(
+                item ->
+                    "S01-poster.jpg".equals(item.getSourceName())
+                        && "poster.jpg".equals(item.getTargetName())));
+    assertFalse(
+        preview.getProposedFileRenames().stream()
+            .anyMatch(
+                item ->
+                    "poster.jpg".equals(item.getSourceName())
+                        || "tvshow.nfo".equals(item.getSourceName())));
+  }
+
+  @Test
+  void createsSeasonThenRenamesAndMovesFlatMediaGroup() {
+    stubTvTaskWithEntries(
+        List.of(
+            entry("Show.S01E01.mkv", "/tv/Show/Show.S01E01.mkv", "file"),
+            entry("Show.S01E01-thumb.jpg", "/tv/Show/Show.S01E01-thumb.jpg", "file")));
+    when(tmdbApiService.getTvDetail(1399)).thenReturn(tvDetail());
+    OpenlistConfig config = openlistConfigService.getById(3L);
+    when(openlistApiService.getDirectoryContents(config, "/tv"))
+        .thenReturn(List.of(entry("Show", "/tv/Show", "folder")));
+
+    PreviewRequest previewRequest = new PreviewRequest();
+    previewRequest.setDirectoryPath("/tv/Show");
+    previewRequest.setTmdbId(1399);
+    service.preview(7L, previewRequest);
+
+    var executeRequest = new com.hienao.openlist2strm.dto.task.ManualScrapingDtos.ExecuteRequest();
+    executeRequest.setDirectoryPath("/tv/Show");
+    executeRequest.setMediaType("tv");
+    executeRequest.setTmdbId(1399);
+    executeRequest.setRenameMedia(true);
+    service.execute(7L, executeRequest);
+
+    String finalRoot = "/tv/Show (2011) {tmdbid-1399}";
+    InOrder order = inOrder(openlistApiService);
+    order.verify(openlistApiService).renameEntry(config, "/tv/Show", "Show (2011) {tmdbid-1399}");
+    order.verify(openlistApiService).createDirectory(config, finalRoot + "/Season 01");
+    order
+        .verify(openlistApiService)
+        .moveEntries(config, finalRoot, finalRoot + "/Season 01", List.of("Show.S01E01.mkv"));
+    order
+        .verify(openlistApiService)
+        .renameEntry(config, finalRoot + "/Season 01/Show.S01E01.mkv", "Show - S01E01.mkv");
+    order
+        .verify(openlistApiService)
+        .moveEntries(config, finalRoot, finalRoot + "/Season 01", List.of("Show.S01E01-thumb.jpg"));
+    order
+        .verify(openlistApiService)
+        .renameEntry(
+            config, finalRoot + "/Season 01/Show.S01E01-thumb.jpg", "Show - S01E01-thumb.jpg");
   }
 
   @Test
