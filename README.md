@@ -1,3 +1,5 @@
+> **Go 原生版本**：已实现内嵌网页、跨平台单文件运行和安装包，不需要 Docker/Java。参见 [Go 使用说明](README-GO.md)、[验证报告](docs/rewrite/progress.md) 与 [版本下载](https://github.com/Moersity/ostrm/releases)。下方保留上游原版说明。
+
 <p align="center">
   <img src="./assets/readme/hero.svg" width="100%" alt="OStrm 将 OpenList 影音目录转换为媒体库可直接使用的 STRM 文件">
 </p>

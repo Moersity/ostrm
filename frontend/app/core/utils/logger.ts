@@ -6,7 +6,7 @@
  * @date 2026-01-31
  */
 
-import { apiCall } from '~/core/utils/api'
+import { useAuthStore } from '~/core/stores/auth'
 
 /**
  * 日志级别类型
@@ -102,20 +102,14 @@ class Logger {
         sessionId: this.getSessionId()
       }))
       
-      if (sync && navigator.sendBeacon) {
-        // 同步发送（页面卸载时）
-        const data = JSON.stringify({ logs: enrichedLogs })
-        navigator.sendBeacon('/api/logs/frontend', data)
-      } else {
-        // 异步发送 - 使用apiCall而不是authenticatedApiCall，因为日志API不需要认证
-        // API路径为'/logs/frontend'
-        await apiCall('/logs/frontend', {
-          method: 'POST',
-          body: { logs: enrichedLogs }
-        })
-      }
+      const token = useAuthStore().getToken
+      if (!token) return
+      await fetch('/api/logs/frontend', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ logs: enrichedLogs }), keepalive: sync
+      })
     } catch (error) {
-      console.error('发送前端日志失败:', error)
+      // Avoid feeding a transport failure back into the console collection queue.
       // 发送失败时，将日志重新加入队列
       // this.logQueue.unshift(...logsToSend)
     } finally {

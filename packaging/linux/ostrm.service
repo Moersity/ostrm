@@ -1,0 +1,16 @@
+[Unit]
+Description=OStrm Go
+After=network-online.target
+[Service]
+Type=simple
+User=ostrm
+Group=ostrm
+ExecStart=/usr/bin/ostrm serve --config /etc/ostrm/config.yaml
+WorkingDirectory=/var/lib/ostrm
+Restart=on-failure
+TimeoutStopSec=40
+NoNewPrivileges=true
+PrivateTmp=true
+UMask=0077
+[Install]
+WantedBy=multi-user.target

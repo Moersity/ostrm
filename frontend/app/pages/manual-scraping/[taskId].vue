@@ -540,6 +540,7 @@ const executeScraping = async () => {
         directoryPath: preview.value.directoryPath,
         mediaType: preview.value.mediaType,
         tmdbId: preview.value.tmdbId,
+        planHash: preview.value.planHash,
         renameMedia: renameMedia.value
       }
     })

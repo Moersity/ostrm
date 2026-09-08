@@ -1,0 +1,23 @@
+name: ostrm
+arch: ${ARCH}
+platform: linux
+version: ${VERSION}
+section: utils
+priority: optional
+maintainer: Moersity
+homepage: https://github.com/Moersity/ostrm
+license: GPL-3.0-or-later
+description: OpenList STRM management with embedded web UI
+contents:
+  - src: ${BINARY}
+    dst: /usr/bin/ostrm
+  - src: packaging/linux/ostrm.service
+    dst: /usr/lib/systemd/system/ostrm.service
+  - src: packaging/linux/config.yaml
+    dst: /etc/ostrm/config.yaml
+    type: config|noreplace
+  - src: LICENSE
+    dst: /usr/share/licenses/ostrm/LICENSE
+scripts:
+  postinstall: packaging/linux/postinstall.sh
+  preremove: packaging/linux/preremove.sh

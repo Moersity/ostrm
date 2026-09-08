@@ -101,7 +101,7 @@ export async function apiCall<T = unknown>(
       if (errorData.message) {
         // 创建一个新的错误对象，包含正确的错误信息
         const enhancedError: ApiError = new Error(errorData.message)
-        enhancedError.status = fetchError.status
+        if (fetchError.status !== undefined) enhancedError.status = fetchError.status
         enhancedError.data = fetchError.data
         enhancedError.code = errorData.code
         throw enhancedError

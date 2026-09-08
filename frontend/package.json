@@ -27,7 +27,9 @@
   },
   "devDependencies": {
     "@nuxt/devtools": "^1.0.0",
+    "@playwright/test": "1.63.0",
     "@types/node": "^20.0.0",
-    "typescript": "^5.0.0"
+    "typescript": "5.9.3",
+    "vue-tsc": "3.3.11"
   }
 }
