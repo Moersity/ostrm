@@ -1,6 +1,7 @@
 package app
 
 import (
+	"bytes"
 	"fmt"
 	"log/slog"
 	"os"
@@ -73,4 +74,17 @@ func (a *App) expireLogs() {
 			os.Remove(filepath.Join(dir, f.Name()))
 		}
 	}
+}
+
+type logFanout struct{ backend, errors *rotatingLog }
+
+func (l logFanout) Write(p []byte) (int, error) {
+	n, e := l.backend.Write(p)
+	if e != nil {
+		return n, e
+	}
+	if bytes.Contains(p, []byte(`"level":"ERROR"`)) {
+		_, e = l.errors.Write(p)
+	}
+	return n, e
 }

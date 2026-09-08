@@ -21,23 +21,25 @@ type cacheEntry struct {
 	until time.Time
 }
 type App struct {
-	clients  map[string]*http.Client
-	cache    map[string]cacheEntry
-	Config   Config
-	Store    *Store
-	Client   *http.Client
-	secret   []byte
-	mu       sync.Mutex
-	configMu sync.Mutex
-	limits   map[string]*limiter
-	active   map[int64]context.CancelFunc
-	wg       sync.WaitGroup
-	ctx      context.Context
-	cancel   context.CancelFunc
-	lock     *flock.Flock
-	logFile  *rotatingLog
-	logLevel slog.LevelVar
-	Log      *slog.Logger
+	clients      map[string]*http.Client
+	cache        map[string]cacheEntry
+	Config       Config
+	Store        *Store
+	Client       *http.Client
+	secret       []byte
+	mu           sync.Mutex
+	configMu     sync.Mutex
+	limits       map[string]*limiter
+	active       map[int64]context.CancelFunc
+	wg           sync.WaitGroup
+	ctx          context.Context
+	cancel       context.CancelFunc
+	lock         *flock.Flock
+	logFile      *rotatingLog
+	errorFile    *rotatingLog
+	frontendFile *rotatingLog
+	logLevel     slog.LevelVar
+	Log          *slog.Logger
 }
 
 func New(c Config) (*App, error) {
@@ -65,7 +67,17 @@ func New(c Config) (*App, error) {
 		return nil, e
 	}
 	a.logFile = f
-	a.Log = slog.New(slog.NewJSONHandler(f, &slog.HandlerOptions{Level: &a.logLevel}))
+	a.errorFile, e = openLog(filepath.Join(c.DataDir, "logs", "error.log"))
+	if e != nil {
+		a.Close()
+		return nil, e
+	}
+	a.frontendFile, e = openLog(filepath.Join(c.DataDir, "logs", "frontend.log"))
+	if e != nil {
+		a.Close()
+		return nil, e
+	}
+	a.Log = slog.New(slog.NewJSONHandler(logFanout{f, a.errorFile}, &slog.HandlerOptions{Level: &a.logLevel}))
 	if settings, err := a.settings(); err == nil {
 		a.logSettings(settings)
 	}
@@ -110,6 +122,12 @@ func (a *App) Close() error {
 	a.wg.Wait()
 	if a.logFile != nil {
 		a.logFile.Close()
+	}
+	if a.errorFile != nil {
+		a.errorFile.Close()
+	}
+	if a.frontendFile != nil {
+		a.frontendFile.Close()
 	}
 	if a.Store != nil {
 		a.Store.DB.Close()

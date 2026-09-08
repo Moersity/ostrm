@@ -219,13 +219,7 @@ func (a *App) registerLogs(mux *http.ServeMux, handle func(string, endpoint)) {
 		if e != nil {
 			return nil, e
 		}
-		p, _ := a.logPath("frontend")
-		f, e := os.OpenFile(p, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
-		if e != nil {
-			return nil, e
-		}
-		defer f.Close()
-		_, e = fmt.Fprintln(f, redact(fmt.Sprint(m)))
+		_, e = fmt.Fprintln(a.frontendFile, redact(fmt.Sprint(m)))
 		return "日志已接收", e
 	})
 	handle("DELETE /api/logs/{logType}", func(r *http.Request) (any, error) {
