@@ -20,7 +20,10 @@ type rotatingLog struct {
 
 func openLog(path string) (*rotatingLog, error) {
 	f, e := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
-	return &rotatingLog{path: path, file: f}, e
+	if e != nil {
+		return nil, e
+	}
+	return &rotatingLog{path: path, file: f}, nil
 }
 func (l *rotatingLog) Write(p []byte) (int, error) {
 	l.mu.Lock()
