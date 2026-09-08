@@ -7,7 +7,7 @@
 证据：
 - Go 1.27.1，CGO_ENABLED=0 六目标编译；本地 go test -race ./... 与 go vet ./...。
 - Java dev 使用 JDK 21 启动并提取 contracts/openapi.json（62 路由）、默认设置；UrlEncoderTest、TaskManifestServiceTest、TaskDirectoryStructureValidatorTest、SeasonDirectoryNameParserTest 的原测试通过。
-- Go 17 项测试覆盖鉴权、URL、路径、增量与失败保留、Cron、限流取消、备份、嵌入页面、中文季目录、远端重命名响应丢失重试、输出写入恢复、旧 SQLite 导入、通知/AI/媒体刷新及 NFO XML。
+- Go 18 项测试覆盖鉴权、URL、路径、增量与失败保留、Cron、限流取消、备份、嵌入页面、中文季目录、远端重命名响应丢失重试、输出写入恢复、旧 SQLite 导入、通知/AI/媒体刷新及 NFO XML。
 - 前端 typecheck 和 Chromium E2E 已通过；E2E 含登录、设置、任务提交到完成、手动刮削目录页与刷新。
 - 第一次 CI 34194258782：四种 Windows/macOS 安装通过；Linux 打包模板变量问题已修复。
 - 第二次 CI 34195203654：Linux ARM64 安装通过；Windows/macOS 输出路径别名问题已修复；最新提交重新验证。

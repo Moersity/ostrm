@@ -504,7 +504,7 @@ func (a *App) autoRename(ctx context.Context, t, c, s Object, files []remoteFile
 			return e
 		}
 		if !boolean(p, "matched", false) {
-			continue
+			return fmt.Errorf("自动整理未匹配 %s: %s", dir, str(p, "matchMessage"))
 		}
 		r, e := a.Store.Save("manual", 0, Object{"taskId": t["id"], "directoryPath": dir, "renameMedia": true, "plan": p, "status": "RUNNING", "steps": Object{}})
 		if e != nil {

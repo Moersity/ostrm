@@ -142,3 +142,58 @@ func TestTMDBAndConfigurablePatterns(t *testing.T) {
 	_ = a
 	_ = context.Background()
 }
+
+func TestManualTVAndFlatMoviePlans(t *testing.T) {
+	a := testApp(t)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var q Object
+		_ = json.NewDecoder(r.Body).Decode(&q)
+		reply := func(m any) { _ = json.NewEncoder(w).Encode(m) }
+		if strings.HasPrefix(r.URL.Path, "/3/") {
+			reply(Object{"id": 1, "name": "Show", "title": "Movie", "first_air_date": "2020-01-01", "release_date": "2020-01-01"})
+			return
+		}
+		if r.URL.Path == "/api/fs/get" {
+			reply(Object{"code": 200, "data": Object{"name": "old.mkv", "is_dir": false, "size": 10}})
+			return
+		}
+		paths := map[string][]Object{
+			"/media/show":     {{"name": "第四季", "is_dir": true}},
+			"/media/show/第四季": {{"name": "E03.mkv", "is_dir": false}},
+			"/media":          {{"name": "old.mkv", "is_dir": false}, {"name": "old.zh.ass", "is_dir": false}},
+		}
+		files := paths[str(q, "path")]
+		if files == nil {
+			files = []Object{}
+		}
+		reply(Object{"code": 200, "data": Object{"content": files, "total": len(files)}})
+	}))
+	defer srv.Close()
+	s := DefaultSettings()
+	obj(s, "tmdb")["baseUrl"] = srv.URL
+	obj(s, "tmdb")["apiKey"] = "test"
+	c := Object{"baseUrl": srv.URL}
+	task := Object{"id": 1, "path": "/media", "libraryType": "auto"}
+	p, e := a.preview(context.Background(), task, c, s, Object{"directoryPath": "/media/show", "tmdbId": 1})
+	if e != nil {
+		t.Fatal(e)
+	}
+	if str(p, "mediaType") != "tv" {
+		t.Fatal(p)
+	}
+	dirs := p["proposedDirectoryRenames"].([]Object)
+	if len(dirs) != 1 || str(dirs[0], "targetName") != "Season 04" {
+		t.Fatal(dirs)
+	}
+	files := p["proposedFileRenames"].([]Object)
+	if len(files) != 1 || str(files[0], "targetName") != "Show S04E03.mkv" {
+		t.Fatal(files)
+	}
+	p, e = a.preview(context.Background(), task, c, s, Object{"directoryPath": "/media/old.mkv", "mediaType": "movie", "tmdbId": 1})
+	if e != nil {
+		t.Fatal(e)
+	}
+	if !boolean(p, "organizeFlatMovie", false) || len(flatNames(p)) != 2 {
+		t.Fatal(p)
+	}
+}
