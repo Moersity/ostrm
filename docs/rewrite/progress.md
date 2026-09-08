@@ -17,3 +17,11 @@
 发布：仅 dev CI artifacts；未提升 beta/main、未发布未经验收的正式版。原生构建/安装流程由 go-ci.yml 验证，release.yml 在 dev→beta 或 beta→main 合并后调用相同流程发布。安装包默认 unsigned，未配置证书与 macOS 公证。
 
 仍需明确的验证边界：没有用户真实 OpenList/TMDB/Emby/Apprise 生产服务凭据，外部变更仅用 mock；未完成 62 个接口全部输入组合的逐响应差分、Java/Go 全流程性能对比和所有历史库版本迁移测试。以上不应表述为 100% 行为等价。
+
+## 最终验收
+
+应用提交：a3fc68f6d01bb60aa1d1e9b1067e412c05b62970。
+CI：https://github.com/Moersity/ostrm/actions/runs/34196410974 —— completed / success。
+前端及六个原生 job 全部成功。Windows amd64/arm64、macOS amd64/arm64、Linux amd64/arm64 均完成打包、安装、重复安装、运行、无变化增量、重启、卸载后数据保留。macOS launchd、Windows Service、Linux systemd 启动/停止通过。Linux 同时执行 DEB 和 RPM 生命周期；RPM 在 Ubuntu 原生架构 runner 上以 --nodeps 测试，未声称覆盖全部 RPM 发行版的依赖解析。
+
+最后修复包括跨平台路径别名、launchd 没有 HOME 时显式数据目录、Finder 启动网页、前端日志及错误日志轮换。全部构建产物可从上述 Actions artifacts 获取。后续文档提交不改变经过验证的应用代码。
