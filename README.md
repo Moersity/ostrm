@@ -39,7 +39,7 @@ GPL-3.0-or-later。基于 hienao/ostrm 的前端及业务行为重写，原版�
 
 ## 下载与目录
 
-正式安装包见 [GitHub Releases](https://github.com/Moersity/ostrm/releases)。`dev` 的变更需经过 beta → main 发布后才进入正式版。
+正式安装包见 [GitHub Releases](https://github.com/Moersity/ostrm/releases)。开发分支通过 PR 直接合并到 `main` 后自动发布，版本遵循 SemVer。默认递增补丁版本；新增功能使用 feat，破坏性变更使用 ! 或 BREAKING CHANGE。
 
 - `cmd/ostrm`：CLI 和服务入口。
 - `internal/app`：Go API、SQLite、任务、刮削及迁移。

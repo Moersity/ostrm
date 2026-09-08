@@ -46,6 +46,8 @@ Go CI 在六种原生目标上运行测试、打包和安装生命周期检查�
 
 ## 发布分支
 
-严格遵循 `dev → beta → main`，beta/main 只能通过对应 PR 接收修改，详见根目录 AGENTS.md。版本号在 dev 的 app_version.json 修改；合法 PR 合并触发 release.yml，安装检查通过后创建 GitHub Release。开发构建不等同正式版本。
+开发分支直接通过 PR 合并到 main，不再经过 beta。合并后 release.yml 从已发布的正式版本自动计算 SemVer：默认 patch，feat 为 minor，带 ! 或 BREAKING CHANGE 为 major。semver 标签只能提高级别，不能降级；脚本综合上次正式版之后的提交和本次 PR 标题。重跑复用版本，上传失败保留草稿；重跑发布 job 会校验已上传附件的 SHA-256，只补传缺失附件。不要修改已发布标签或强制覆盖附件。
+
+无需维护 app_version.json。版本只在成功的正式发布账本中前进，并注入同一次构建的后端、网页和安装包。自动化不会识别任意自然语言的新功能，PR 标题必须使用正确的语义前缀。规则见 AGENTS.md；可用 `python3 -m unittest discover -s tests/release` 验证。开发构建不等同正式版本。
 
 默认安装包未签名，macOS 未公证。配置签名和公证前不要声称已完成。

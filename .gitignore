@@ -14,3 +14,7 @@ node_modules/
 /tmp/
 .vscode/
 .DS_Store
+
+__pycache__/
+/release-plan.json
+/release-notes.md
