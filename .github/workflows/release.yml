@@ -68,8 +68,9 @@ jobs:
         run: |
           set -euo pipefail
           tag="v$VERSION"
-          existing=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag" --jq .object.sha 2>/dev/null || true)
-          if [ -n "$existing" ] && [ "$existing" != "$SHA" ]; then echo 'Tag points to another commit'; exit 1; fi
+          if existing=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$tag" --jq .object.sha 2>/dev/null); then
+            if [ "$existing" != "$SHA" ]; then echo 'Tag points to another commit'; exit 1; fi
+          fi
           if gh release view "$tag" --json isDraft --jq .isDraft > draft-state.txt 2>/dev/null; then
             if [ "$(cat draft-state.txt)" != true ]; then echo 'Release already published; assets are immutable'; exit 1; fi
           else
