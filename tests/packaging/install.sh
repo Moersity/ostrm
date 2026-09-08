@@ -8,6 +8,12 @@ if [[ "$OSTYPE" == darwin* ]]; then
   node tests/packaging/smoke.mjs /Applications/OStrm.app/Contents/MacOS/ostrm
   sudo installer -pkg "dist/ostrm_${version}_darwin_${arch}.pkg" -target /
   node tests/packaging/smoke.mjs /Applications/OStrm.app/Contents/MacOS/ostrm
+  sudo /Applications/OStrm.app/Contents/MacOS/ostrm service install --listen 127.0.0.1:31117 --data-dir "$OSTRM_SMOKE_DATA-service"
+  sudo /Applications/OStrm.app/Contents/MacOS/ostrm service start
+  for i in {1..30}; do if curl --fail --silent http://127.0.0.1:31117/health >/dev/null; then break; fi; sleep 1; done
+  curl --fail http://127.0.0.1:31117/health
+  sudo /Applications/OStrm.app/Contents/MacOS/ostrm service stop
+  sudo /Applications/OStrm.app/Contents/MacOS/ostrm service uninstall
   sudo rm -rf /Applications/OStrm.app
   sudo pkgutil --forget io.github.moersity.ostrm
 else

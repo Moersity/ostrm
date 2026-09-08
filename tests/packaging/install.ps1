@@ -9,6 +9,14 @@ for($i=0;$i -lt 2;$i++){
  & node tests/packaging/smoke.mjs "$dest/ostrm.exe"
  if($LASTEXITCODE -ne 0){throw 'Installed binary failed'}
 }
+& "$dest/ostrm.exe" service install --listen 127.0.0.1:31117 --data-dir "$env:RUNNER_TEMP/ostrm-service-data"
+if($LASTEXITCODE -ne 0){throw 'Service install failed'}
+try {
+ & "$dest/ostrm.exe" service start
+ for($i=0;$i -lt 30;$i++){try {Invoke-RestMethod http://127.0.0.1:31117/health | Out-Null;break}catch{Start-Sleep 1}}
+ Invoke-RestMethod http://127.0.0.1:31117/health | Out-Null
+ & "$dest/ostrm.exe" service stop
+} finally { & "$dest/ostrm.exe" service uninstall }
 $p=Start-Process "$dest/unins000.exe" -ArgumentList @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART') -Wait -PassThru
 if($p.ExitCode -ne 0){throw 'Uninstall failed'}
 

@@ -425,7 +425,11 @@ func (a *App) processMetadata(ctx context.Context, t, c, s Object, f remoteFile,
 		if e != nil {
 			return e
 		}
-		if e = write(rel, f.Path, b); e != nil {
+		source := f.Path
+		if !strings.HasPrefix(asset.Name, base+".") {
+			source = path.Dir(f.Path)
+		}
+		if e = write(rel, source, b); e != nil {
 			return e
 		}
 	}
@@ -441,7 +445,14 @@ func (a *App) processMetadata(ctx context.Context, t, c, s Object, f remoteFile,
 	if isSeasonDirectory(identity) {
 		identity = path.Base(path.Dir(path.Dir(f.Path)))
 	}
-	m, e := a.recognize(ctx, s, identity, str(t, "libraryType"), "", "", 0)
+	typ := str(t, "libraryType")
+	if typ == "auto" || typ == "" {
+		_, ep := mediaNumbersConfig(s, f.Path)
+		if ep > 0 {
+			typ = "tv"
+		}
+	}
+	m, e := a.recognize(ctx, s, identity, typ, "", "", 0)
 	if e != nil {
 		return e
 	}

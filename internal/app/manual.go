@@ -76,6 +76,18 @@ func (a *App) preview(ctx context.Context, t, c, s, req Object) (Object, error) 
 	if str(req, "mediaType") != "" {
 		typ = str(req, "mediaType")
 	}
+	if typ == "auto" || typ == "" {
+		for _, f := range files {
+			if f.IsDir || !video(f.Name, s) {
+				continue
+			}
+			_, ep := mediaNumbersConfig(s, f.Path)
+			if ep > 0 {
+				typ = "tv"
+				break
+			}
+		}
+	}
 	m, e := a.recognize(ctx, s, dir, typ, str(req, "title"), str(req, "year"), num(req, "tmdbId"))
 	if e != nil {
 		return Object{"directoryPath": dir, "matched": false, "matchMessage": e.Error(), "proposedFileRenames": []Object{}, "proposedDirectoryRenames": []Object{}, "proposedDirectoryCreates": []string{}, "generatedFiles": []string{}, "renamedGeneratedFiles": []string{}}, nil
