@@ -495,14 +495,14 @@ func (a *App) processMetadata(ctx context.Context, t, c, s Object, f remoteFile,
 		}
 		b, e := a.download(ctx, c, asset)
 		if e != nil {
-			return e
+			return fmt.Errorf("下载附属文件 %s 失败: %w", asset.Path, e)
 		}
 		source := f.Path
 		if !movie && !strings.HasPrefix(asset.Name, base+".") {
 			source = path.Dir(f.Path)
 		}
 		if e = write(rel, source, b); e != nil {
-			return e
+			return fmt.Errorf("写入元数据文件 %s 失败: %w", rel, e)
 		}
 	}
 	if boolean(opts, "useExistingScrapingInfo", false) {
@@ -558,11 +558,11 @@ func (a *App) processMetadata(ctx context.Context, t, c, s Object, f remoteFile,
 	}
 	m, e := a.recognize(ctx, s, identity, typ, title, year, id)
 	if e != nil {
-		return e
+		return fmt.Errorf("识别媒体 %s 失败: %w", identity, e)
 	}
 	outputs, e := a.metadataFiles(ctx, s, m, f.Path)
 	if e != nil {
-		return e
+		return fmt.Errorf("生成元数据或下载图片失败: %w", e)
 	}
 	for name, b := range outputs {
 		rel := filepath.Join(localDir, safeName(name))
@@ -580,7 +580,7 @@ func (a *App) processMetadata(ctx context.Context, t, c, s Object, f remoteFile,
 			source = path.Dir(f.Path)
 		}
 		if e = write(rel, source, b); e != nil {
-			return e
+			return fmt.Errorf("写入元数据文件 %s 失败: %w", rel, e)
 		}
 	}
 	return nil

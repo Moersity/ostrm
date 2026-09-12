@@ -37,6 +37,15 @@ GPL-3.0-or-later。基于 hienao/ostrm 的前端及业务行为重写，原版�
 
 电影支持根目录和任意层级子目录。默认标准化 STRM 名称并只选同片最佳画质，可在任务中预览保留／过滤结果或选择保留所有版本；不删除 OpenList 原视频。详见 [电影目录、识别与画质筛选](docs/movie-library.md)。
 
+## 任务日志
+
+数据目录的 `logs/backend.log` 保存 JSON 行日志，`logs/error.log` 同时收录 ERROR 记录。
+通过 `taskName` / `taskId` 定位任务，再用 `runId` 区分每次执行；整理作业另有 `manualJobId`。
+`sourcePath`、`outputPath`、`stage` 标明当前文件和操作，`error` 给出失败原因，`durationMs` 记录耗时。
+默认 Info 记录排队、扫描、文件处理、清理和结果统计；失败文件会单独记录，部分失败时说明为何跳过清理。
+OpenList 请求重试会记录次数和等待时间，媒体库刷新及通知失败也会单独记录。
+在设置中启用 Debug 可查看目录读取和未变化文件的跳过记录；取消操作使用 Warn，不计作文件失败。
+
 ## 下载与目录
 
 正式安装包见 [GitHub Releases](https://github.com/Moersity/ostrm/releases)。开发分支通过 PR 直接合并到 `main` 后自动发布，版本遵循 SemVer。默认递增补丁版本；新增功能使用 feat，破坏性变更使用 ! 或 BREAKING CHANGE。
