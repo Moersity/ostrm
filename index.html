@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>OStrm — 让 OpenList 片库井然有序</title>
+  <meta name="description" content="OStrm 为 OpenList 生成与管理 STRM 文件。Go 原生程序，内嵌管理网页，支持 Windows、macOS 和 Linux。Moersity 维护的开源版本。">
+  <meta name="theme-color" content="#101d32"><link rel="icon" href="./favicon.svg" type="image/svg+xml">
+  <link rel="canonical" href="https://moersity.github.io/ostrm/"><link rel="stylesheet" href="./style.css">
+  <meta property="og:title" content="OStrm — 让 OpenList 片库井然有序"><meta property="og:description" content="生成 STRM，整理媒体目录，把时间留给好内容。"><meta property="og:type" content="website"><meta property="og:url" content="https://moersity.github.io/ostrm/">
+</head>
+<body>
+<a class="skip" href="#main">跳转到正文</a>
+<header class="nav wrap"><a class="brand" href="./"><img src="./favicon.svg" width="38" height="38" alt=""><span>OStrm<span class="brand-note">BY MOERSITY</span></span></a><nav aria-label="主导航"><a href="#features">功能</a><a href="#start">开始使用</a><a href="https://github.com/Moersity/ostrm" class="repo">GitHub <span aria-hidden="true">↗</span></a></nav></header>
+<main id="main">
+<section class="hero wrap">
+  <div class="hero-copy"><p class="eyebrow">OPENLIST → STRM → YOUR LIBRARY</p><h1>云端片库，<br>整理得<span>刚刚好。</span></h1><p class="intro">把 OpenList 中的媒体文件变成 STRM，<br class="desktop">让你的媒体库保持整洁，更新更轻松。</p><div class="actions"><a class="button primary" href="#download">下载 OStrm <span aria-hidden="true">↓</span></a><a class="text-link" href="https://github.com/Moersity/ostrm#readme">阅读文档 <span aria-hidden="true">↗</span></a></div><div class="hero-meta"><span>Go 原生程序</span><span>内嵌管理网页</span><span>GPL-3.0 开源</span></div></div>
+  <div class="flow" aria-label="流程示意：从 OpenList 媒体目录生成 STRM 文件并供媒体服务器使用">
+    <div class="flow-top"><span class="mono">LIBRARY / WORKFLOW</span><span class="small">流程示意</span></div>
+    <div class="source"><span class="folder" aria-hidden="true">▱</span><div><strong>OpenList</strong><span>你的云端媒体目录</span></div><span class="tag">SOURCE</span></div>
+    <div class="connector"><span></span><p>扫描 · 识别 · 选择画质</p></div>
+    <div class="file-tree"><div class="tree-head"><span>电影 / Movies</span><span class="mono">.strm</span></div><p><span class="tree-line">├─</span> 星际穿越 (2014)<span class="quality">2160p</span></p><p class="file"><span class="tree-line">│　└─</span> 星际穿越 (2014).strm</p><p><span class="tree-line">└─</span> 火星救援 (2015)<span class="quality">1080p</span></p><p class="file"><span class="tree-line">　　└─</span> 火星救援 (2015).strm</p></div>
+    <div class="flow-bottom"><span>交给你喜欢的媒体服务器</span><div><b>Emby</b><b>Jellyfin</b></div></div>
+  </div>
+</section>
+<div class="platform-strip"><div class="wrap"><span>一套工具，运行在你熟悉的系统上</span><div>Windows <i>/</i> macOS <i>/</i> Linux <small>AMD64 & ARM64</small></div></div></div>
+<section class="wrap section" id="features"><div class="section-title"><p class="eyebrow">LESS MAINTENANCE. MORE WATCHING.</p><h2>少一点维护，多一点观影。</h2></div><div class="features">
+<article><span class="number">01 / GENERATE</span><h3>生成与增量更新</h3><p>按任务生成 STRM。没有变化的文件保留修改时间，避免不必要的媒体库重扫。</p></article>
+<article><span class="number">02 / ORGANIZE</span><h3>片源多，也能有序</h3><p>支持电影、电视剧与动漫。电影可预览多画质筛选结果，选择最佳片源或保留多个版本。</p></article>
+<article><span class="number">03 / CONNECT</span><h3>在网页里完成管理</h3><p>程序内嵌管理界面，可选接入 TMDB、Emby、Jellyfin 等服务。不必另行部署网页服务。</p></article>
+</div></section>
+<section class="wrap" id="start"><div class="start-panel"><div><p class="eyebrow">QUICK START</p><h2>从第一次运行开始。</h2><p>下载适合系统与架构的安装包或便携版，<br class="desktop">打开 OStrm，然后在浏览器中完成配置。</p><a href="https://github.com/Moersity/ostrm#readme" class="text-link">查看完整安装说明 ↗</a></div><div class="steps"><div><span>1</span><p><strong>安装或解压程序</strong>使用正式 Release 中的对应版本。</p></div><div><span>2</span><p><strong>启动并打开管理网页</strong>默认地址 <code>http://127.0.0.1:3111</code></p></div><div><span>3</span><p><strong>连接 OpenList，创建任务</strong>注册管理员，设置来源与 STRM 输出目录。</p></div><div class="terminal"><span>便携版命令行启动</span><code>ostrm serve --listen 127.0.0.1:3111</code></div></div></div></section>
+<section class="wrap section safety"><div><p class="eyebrow">YOUR DATA STAYS YOURS</p><h2>升级程序，<br>保留你的片库。</h2></div><div><p>支持在线升级的版本会在页面提醒新版本，你可以跳过，也可以升级。升级前校验下载文件、备份数据库与旧程序，并沿用原有数据目录。</p><p>在线升级适用于程序目录可写的 Linux / macOS。Windows 和无写权限的安装需要使用新版安装包覆盖安装，保留原数据目录。具体功能以下载版本的发行说明为准。</p><a class="text-link" href="https://github.com/Moersity/ostrm/blob/main/docs/development.md#页面更新提示与安全升级">了解备份与升级方式 ↗</a></div></section>
+<section id="download" class="download"><div class="wrap"><div class="download-heading"><div><p class="eyebrow">READY WHEN YOU ARE</p><h2>选好系统，开始整理。</h2></div><a id="release-label" href="https://github.com/Moersity/ostrm/releases/latest">查看最新正式版 ↗</a></div><p class="download-note" id="download-status" aria-live="polite">所有下载均来自 Moersity/ostrm 的 GitHub Releases。</p><div class="downloads">
+<article><h3>Windows</h3><p>安装版 · .exe</p><label for="windows-arch">处理器架构</label><select id="windows-arch" data-os="windows"><option value="amd64">Intel / AMD · x64</option><option value="arm64">ARM64</option></select><a class="button download-link" data-os="windows" href="https://github.com/Moersity/ostrm/releases/latest">查看 Windows 安装包 ↗</a></article>
+<article><h3>macOS</h3><p>安装版 · .pkg</p><label for="darwin-arch">处理器架构</label><select id="darwin-arch" data-os="darwin"><option value="arm64">Apple Silicon · M 系列</option><option value="amd64">Intel</option></select><a class="button download-link" data-os="darwin" href="https://github.com/Moersity/ostrm/releases/latest">查看 macOS 安装包 ↗</a></article>
+<article><h3>Linux</h3><p>便携版 · .tar.gz</p><label for="linux-arch">处理器架构</label><select id="linux-arch" data-os="linux"><option value="amd64">Intel / AMD · x64</option><option value="arm64">ARM64</option></select><a class="button download-link" data-os="linux" href="https://github.com/Moersity/ostrm/releases/latest">查看 Linux 安装包 ↗</a></article>
+</div><a class="all-releases" href="https://github.com/Moersity/ostrm/releases">全部发行版本、deb / rpm 与校验文件 ↗</a></div></section>
+</main>
+<footer class="wrap"><div class="footer-brand"><img src="./favicon.svg" width="28" height="28" alt=""><strong>OStrm</strong><span>由 Moersity 维护</span></div><p>基于 <a href="https://github.com/hienao/ostrm">hienao/ostrm</a>，保留原版权与 GPL-3.0 许可。</p><a href="https://github.com/Moersity/ostrm/issues">反馈问题 ↗</a></footer>
+<script src="./site.js" defer></script>
+</body></html>
