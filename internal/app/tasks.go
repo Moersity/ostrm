@@ -94,6 +94,10 @@ func (a *App) submit(id int64, increment *bool) (Object, error) {
 		t["isIncrement"] = *increment
 	}
 	a.mu.Lock()
+	if a.updating {
+		a.mu.Unlock()
+		return nil, errors.New("正在升级，请稍后执行任务")
+	}
 	if _, ok := a.active[id]; ok {
 		a.mu.Unlock()
 		return nil, errors.New("任务正在执行")

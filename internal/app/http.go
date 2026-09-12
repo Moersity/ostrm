@@ -335,7 +335,20 @@ func (a *App) Handler() http.Handler {
 		return a.checkVersion(r.Context(), r.URL.Query().Get("includePrerelease") == "true")
 	})
 	handle("GET /api/version/latest", func(r *http.Request) (any, error) { return a.checkVersion(r.Context(), false) })
-	handle("DELETE /api/version/cache/clear", func(r *http.Request) (any, error) { return "版本查询未使用持久缓存", nil })
+	handle("DELETE /api/version/cache/clear", func(r *http.Request) (any, error) {
+		a.versionMu.Lock()
+		a.releaseUntil = time.Time{}
+		a.versionMu.Unlock()
+		return "版本缓存已清除", nil
+	})
+	handle("POST /api/version/upgrade", func(r *http.Request) (any, error) {
+		m, e := readBody(r)
+		if e != nil {
+			return nil, e
+		}
+		return a.startUpdate(str(m, "version"))
+	})
+	handle("GET /api/version/upgrade", func(r *http.Request) (any, error) { return a.updateStatus(), nil })
 	a.registerMedia(handle)
 	a.registerTrash(handle)
 	a.registerManual(handle)
@@ -355,6 +368,13 @@ func (a *App) Handler() http.Handler {
 				return
 			}
 			r = r.WithContext(context.WithValue(r.Context(), claimsKey{}, c))
+		}
+		a.mu.Lock()
+		updating := a.updating
+		a.mu.Unlock()
+		if updating && strings.HasPrefix(p, "/api/") && r.Method != "GET" && r.Method != "HEAD" && p != "/api/auth/refresh" && p != "/api/auth/sign-in" {
+			response(w, 503, 503, "正在安全升级，请稍后操作", nil)
+			return
 		}
 		mux.ServeHTTP(w, r)
 	})

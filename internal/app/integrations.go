@@ -133,36 +133,6 @@ func (a *App) notify(ctx context.Context, c, t, r Object) error {
 	}
 	return e
 }
-func (a *App) checkVersion(ctx context.Context, pre bool) (Object, error) {
-	target := "https://api.github.com/repos/Moersity/ostrm/releases/latest"
-	if pre {
-		target = "https://api.github.com/repos/Moersity/ostrm/releases?per_page=20"
-	}
-	b, _, e := a.request(ctx, "GET", target, map[string]string{"Accept": "application/vnd.github+json", "User-Agent": "OStrm-Go"}, nil)
-	if e != nil {
-		return Object{"currentVersion": Version, "latestVersion": Version, "hasUpdate": false, "error": e.Error(), "checkTime": now()}, nil
-	}
-	var m Object
-	if pre {
-		var rs []Object
-		if e = json.Unmarshal(b, &rs); e != nil {
-			return nil, e
-		}
-		for _, r := range rs {
-			if !boolean(r, "draft", false) {
-				m = r
-				break
-			}
-		}
-	} else {
-		e = json.Unmarshal(b, &m)
-	}
-	if e != nil {
-		return nil, e
-	}
-	latest := strings.TrimPrefix(str(m, "tag_name"), "v")
-	return Object{"currentVersion": Version, "latestVersion": latest, "hasUpdate": versionGreater(latest, Version), "releaseUrl": m["html_url"], "releaseNotes": m["body"], "checkTime": now(), "prerelease": m["prerelease"], "publishedAt": m["published_at"]}, nil
-}
 func versionGreater(a, b string) bool {
 	ap := strings.Split(strings.SplitN(a, "-", 2)[0], ".")
 	bp := strings.Split(strings.SplitN(b, "-", 2)[0], ".")

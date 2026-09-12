@@ -43,7 +43,7 @@
             <span class="hidden sm:inline">@ostrm6</span>
           </a>
           <a
-            href="https://github.com/hienao/ostrm"
+            href="https://github.com/Moersity/ostrm"
             target="_blank"
             rel="noopener noreferrer"
             class="flex items-center gap-1.5 text-sm text-white/40 hover:text-white/70 transition-colors"

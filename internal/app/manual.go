@@ -230,6 +230,10 @@ func (a *App) submitManual(id int64, req Object) (Object, error) {
 		return nil, e
 	}
 	a.mu.Lock()
+	if a.updating {
+		a.mu.Unlock()
+		return nil, errors.New("正在升级，请稍后执行任务")
+	}
 	if a.active[id] != nil {
 		a.mu.Unlock()
 		return nil, errors.New("任务正在执行")
@@ -632,6 +636,10 @@ func (a *App) retryManual(taskID, jobID int64) (Object, error) {
 		return nil, e
 	}
 	a.mu.Lock()
+	if a.updating {
+		a.mu.Unlock()
+		return nil, errors.New("正在升级，请稍后执行任务")
+	}
 	if a.active[taskID] != nil {
 		a.mu.Unlock()
 		return nil, errors.New("任务正在执行")

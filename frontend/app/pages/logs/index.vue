@@ -215,7 +215,8 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { DynamicScroller, DynamicScrollerItem } from 'vue-virtual-scroller'
 import 'vue-virtual-scroller/dist/vue-virtual-scroller.css'
-import { apiCall } from '~/core/api/client'
+import { authenticatedApiCall } from '~/core/utils/api'
+import { useAuthStore } from '~/core/stores/auth'
 import logger from '~/core/utils/logger'
 
 definePageMeta({
@@ -296,6 +297,10 @@ let pollTimer: ReturnType<typeof setInterval> | null = null
 let requestVersion = 0
 
 const parseLevel = (line: string): LogLevel | null => {
+  try {
+    const level = JSON.parse(line).level?.toLowerCase()
+    if (['trace', 'debug', 'info', 'warn', 'error'].includes(level)) return level
+  } catch { /* Legacy text logs remain supported. */ }
   const backendMatch = line.match(
     /^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3}\s+(TRACE|DEBUG|INFO|WARN|ERROR)\b/i
   )
@@ -380,7 +385,7 @@ const buildTailUrl = (initial: boolean) => {
 
 const fetchTail = async (initial: boolean) => {
   const version = requestVersion
-  const response = await apiCall<ApiResponse<LogTailResponse>>(buildTailUrl(initial), { method: 'GET' })
+  const response = await authenticatedApiCall<LogTailResponse>(buildTailUrl(initial), { method: 'GET' })
   if (version !== requestVersion) return
   if (response.code !== 200 || !response.data) {
     throw new Error(response.message || '获取日志失败')
@@ -467,7 +472,11 @@ const copyLog = async (text: string) => {
 const downloadLogs = async () => {
   downloading.value = true
   try {
-    const response = await fetch(`/api/logs/${selectedLogType.value}/download`)
+    const stats = await authenticatedApiCall(`/logs/${selectedLogType.value}/stats`)
+    if (stats.code !== 200) throw new Error(stats.message || '下载失败')
+    const response = await fetch(`/api/logs/${selectedLogType.value}/download`, {
+      headers: { Authorization: `Bearer ${useAuthStore().getToken}` }
+    })
     if (!response.ok) throw new Error('下载失败')
     const blob = await response.blob()
     const objectUrl = URL.createObjectURL(blob)
@@ -487,7 +496,7 @@ const clearLogs = async () => {
   clearing.value = true
   showClearConfirm.value = false
   try {
-    const response = await apiCall<ApiResponse<string>>(`/logs/${selectedLogType.value}`, {
+    const response = await authenticatedApiCall<string>(`/logs/${selectedLogType.value}`, {
       method: 'DELETE'
     })
     if (response.code !== 200) throw new Error(response.message || '清空失败')
