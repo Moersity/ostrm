@@ -5,12 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/reugn/go-quartz/quartz"
+	"log/slog"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/reugn/go-quartz/quartz"
 )
 
 func cronTrigger(expr, tz string) (*quartz.CronTrigger, error) {
@@ -113,6 +115,7 @@ func (a *App) submit(id int64, increment *bool) (Object, error) {
 		cancel()
 		return nil, e
 	}
+	a.taskLogger(t, r).Info("任务已入队", "stage", "QUEUED", "incremental", boolean(t, "isIncrement", true))
 	result := clone(r)
 	a.wg.Add(1)
 	go func() {
@@ -124,10 +127,14 @@ func (a *App) submit(id int64, increment *bool) (Object, error) {
 }
 func (a *App) updateRun(r Object) {
 	if _, e := a.Store.Save("runs", num(r, "id"), r); e != nil {
-		a.Log.Error("persist run", "error", e.Error())
+		a.Log.Error("保存任务执行状态失败", "taskId", num(r, "taskId"), "runId", num(r, "id"), "stage", str(r, "stage"), "error", e.Error())
 	}
 }
 func (a *App) execute(ctx context.Context, t, c, s, r Object) {
+	started := time.Now()
+	logger := a.taskLogger(t, r)
+	ctx = context.WithValue(ctx, taskLogKey{}, logger)
+	logger.Info("任务开始", "stage", "DISCOVERY", "sourcePath", str(t, "path"), "outputPath", str(t, "strmPath"), "incremental", boolean(t, "isIncrement", true))
 	r["status"] = "RUNNING"
 	r["startedAt"] = now()
 	a.updateRun(r)
@@ -145,7 +152,18 @@ func (a *App) execute(ctx context.Context, t, c, s, r Object) {
 			r["status"] = "PARTIAL_SUCCESS"
 		}
 	}
-	a.Log.Info("task finished", "taskId", num(t, "id"), "status", str(r, "status"), "processed", num(r, "processed"), "failed", num(r, "failed"))
+	level := slog.LevelInfo
+	if str(r, "status") == "FAILED" {
+		level = slog.LevelError
+	}
+	if str(r, "status") == "PARTIAL_SUCCESS" || str(r, "status") == "CANCELED" {
+		level = slog.LevelWarn
+	}
+	finishStage := str(r, "stage")
+	if str(r, "failureStage") != "" {
+		finishStage = str(r, "failureStage")
+	}
+	logger.Log(ctx, level, "任务结束", "stage", finishStage, "status", str(r, "status"), "total", num(r, "total"), "processed", num(r, "processed"), "failed", num(r, "failed"), "skipped", num(r, "skipped"), "changed", num(r, "changed"), "cleaned", num(r, "cleaned"), "durationMs", time.Since(started).Milliseconds(), "error", str(r, "errorMessage"))
 	r["completedAt"] = now()
 	r["progress"] = 100
 	r["stage"] = "FINALIZE"
@@ -158,35 +176,51 @@ func (a *App) execute(ctx context.Context, t, c, s, r Object) {
 	}
 	a.configMu.Unlock()
 	if e != nil {
-		a.Log.Error("persist last execution", "error", e.Error())
+		logger.Error("保存任务最后执行时间失败", "error", e.Error())
 	}
 	if ctx.Err() == nil {
 		if str(r, "status") == "SUCCESS" || str(r, "status") == "PARTIAL_SUCCESS" {
 			r["mediaRefresh"], e = a.refreshAfter(ctx, t, num(r, "changed") > 0, boolean(t, "isIncrement", true))
 			if e != nil {
 				r["mediaRefreshError"] = e.Error()
+				logger.Warn("媒体库刷新失败", "stage", "MEDIA_REFRESH", "error", e.Error())
 			}
 		}
 		if e = a.notify(ctx, obj(s, "notifications"), t, r); e != nil {
 			r["notificationError"] = e.Error()
+			logger.Warn("任务通知发送失败", "stage", "NOTIFY", "error", e.Error())
 		}
 		a.updateRun(r)
 	}
 }
-func (a *App) executeFiles(ctx context.Context, t, c, s, r Object) error {
+func (a *App) executeFiles(ctx context.Context, t, c, s, r Object) (runErr error) {
+	logger := a.contextLogger(ctx)
+	stage, source, output := "DISCOVERY", str(t, "path"), str(t, "strmPath")
+	defer func() {
+		if runErr != nil && ctx.Err() == nil {
+			r["failureStage"] = stage
+			logger.Error("任务阶段失败", "stage", stage, "sourcePath", source, "outputPath", output, "error", runErr.Error())
+		}
+	}()
+	logger.Info("开始扫描目录", "stage", "DISCOVERY", "sourcePath", str(t, "path"))
 	files, e := a.scan(ctx, c, str(t, "path"))
 	if e != nil {
 		return e
 	}
+	logger.Info("目录扫描完成", "stage", "DISCOVERY", "entries", len(files))
 	if boolean(t, "autoRenameMedia", false) {
+		stage = "RENAME"
+		logger.Info("开始自动整理", "stage", "RENAME")
 		if e = a.autoRename(ctx, t, c, s, files); e != nil {
 			return e
 		}
+		stage = "DISCOVERY"
 		files, e = a.scan(ctx, c, str(t, "path"))
 		if e != nil {
 			return e
 		}
 	}
+	stage = "PREPARE_OUTPUT"
 	root := str(t, "strmPath")
 	if e = os.MkdirAll(root, 0755); e != nil {
 		return e
@@ -225,6 +259,7 @@ func (a *App) executeFiles(ctx context.Context, t, c, s, r Object) error {
 	eligible := map[string]bool{}
 	vids := []remoteFile{}
 	for _, f := range files {
+		source = f.Path
 		if f.IsDir || !video(f.Name, s) {
 			continue
 		}
@@ -265,16 +300,18 @@ func (a *App) executeFiles(ctx context.Context, t, c, s, r Object) error {
 		}
 		key := strings.ToLower(dest)
 		if src, ok := sourceByOutput[key]; ok && src != f.Path {
-			return errors.New("输出文件名冲突: " + dest)
+			return fmt.Errorf("输出文件名冲突: %s，源文件: %s 与 %s", dest, src, f.Path)
 		}
 		sourceByOutput[key] = f.Path
 		destinations[f.Path] = dest
 		desired[dest] = true
 	}
 
+	stage = "WRITE_STRM"
 	r["total"] = len(vids)
 	r["stage"] = "WRITE_STRM"
 	a.updateRun(r)
+	logger.Info("文件筛选完成", "stage", "WRITE_STRM", "total", len(vids), "filteredVersions", len(selections))
 	write := func(rel, source string, b []byte) error {
 		if old, ok := owned[rel]; ok {
 			m, _ := old.(map[string]any)
@@ -302,7 +339,9 @@ func (a *App) executeFiles(ctx context.Context, t, c, s, r Object) error {
 		if e = ctx.Err(); e != nil {
 			return e
 		}
+		source = f.Path
 		dest := destinations[f.Path]
+		output = filepath.Join(root, dest)
 		_, missing := os.Stat(filepath.Join(root, dest))
 		metadataMissing := false
 		if boolean(t, "needScrap", false) && boolean(obj(s, "scraping"), "enabled", true) {
@@ -311,18 +350,31 @@ func (a *App) executeFiles(ctx context.Context, t, c, s, r Object) error {
 		}
 		sourceChanged := str(obj(owned, dest), "source") != f.Path
 		if reset || changedDirs[path.Dir(f.Path)] || missing != nil || metadataMissing || sourceChanged {
+			fileStarted := time.Now()
+			fileLog := logger.With("sourcePath", f.Path, "outputPath", filepath.Join(root, dest), "fileIndex", i+1, "total", len(vids))
+			stage = "WRITE_STRM"
+			fileLog.Info("开始处理文件", "stage", stage)
 			e = write(dest, f.Path, []byte(strmURL(c, f)))
 			if e == nil && boolean(t, "needScrap", false) {
+				stage = "METADATA"
+				fileLog.Info("开始处理元数据及附属文件", "stage", stage)
 				e = a.processMetadata(ctx, t, c, s, f, dirs[path.Dir(f.Path)], dest, write)
 			}
 			if e != nil {
+				if ctx.Err() != nil {
+					fileLog.Warn("文件处理已取消", "stage", stage, "error", ctx.Err().Error(), "durationMs", time.Since(fileStarted).Milliseconds())
+					return ctx.Err()
+				}
+				fileLog.Error("文件处理失败", "stage", stage, "error", e.Error(), "durationMs", time.Since(fileStarted).Milliseconds())
 				r["failed"] = num(r, "failed") + 1
 				issues, _ := r["issues"].([]any)
-				r["issues"] = append(issues, Object{"sourcePath": f.Path, "reason": e.Error()})
+				r["issues"] = append(issues, Object{"sourcePath": f.Path, "outputPath": filepath.Join(root, dest), "stage": stage, "reason": e.Error()})
 			} else {
+				fileLog.Info("文件处理完成", "stage", stage, "durationMs", time.Since(fileStarted).Milliseconds())
 				r["processed"] = num(r, "processed") + 1
 			}
 		} else {
+			logger.Debug("跳过未变化文件", "stage", "WRITE_STRM", "sourcePath", f.Path, "outputPath", filepath.Join(root, dest))
 			r["skipped"] = num(r, "skipped") + 1
 		}
 		r["progress"] = ((i + 1) * 90) / max(1, len(vids))
@@ -331,11 +383,14 @@ func (a *App) executeFiles(ctx context.Context, t, c, s, r Object) error {
 		}
 	}
 	if num(r, "failed") > 0 {
+		logger.Warn("存在失败文件，跳过清理与扫描快照保存，下次执行将重试", "stage", "CLEANUP", "failed", num(r, "failed"))
 		return nil
 	}
 	if e = ctx.Err(); e != nil {
 		return e
 	}
+	stage = "CLEANUP"
+	logger.Info("开始清理失效输出", "stage", "CLEANUP")
 	r["stage"] = "CLEANUP"
 	a.updateRun(r)
 	// Keep metadata whose source remains present. Only owned outputs from deleted sources are cleaned.
@@ -350,6 +405,8 @@ func (a *App) executeFiles(ctx context.Context, t, c, s, r Object) error {
 		if desired[rel] || keep {
 			continue
 		}
+		source, output = src, filepath.Join(root, rel)
+		logger.Debug("检查失效输出", "stage", "CLEANUP", "sourcePath", src, "outputPath", filepath.Join(root, rel))
 		rr, e := os.OpenRoot(root)
 		if e != nil {
 			return e
@@ -393,7 +450,9 @@ func (a *App) executeFiles(ctx context.Context, t, c, s, r Object) error {
 		}
 		r["changed"] = num(r, "changed") + 1
 		r["cleaned"] = num(r, "cleaned") + 1
+		logger.Info("失效输出已移至回收站", "stage", "CLEANUP", "sourcePath", src, "outputPath", filepath.Join(root, rel))
 	}
+	stage, source, output = "SAVE_MANIFEST", str(t, "path"), root
 	_, e = a.Store.Save("manifest", num(t, "id"), Object{"entries": entries, "fingerprint": fingerprint})
 	return e
 }

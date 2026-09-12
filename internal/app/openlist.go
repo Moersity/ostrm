@@ -173,6 +173,7 @@ func (a *App) remote(ctx context.Context, c Object, endpoint string, payload Obj
 		if i+1 == tries {
 			break
 		}
+		a.contextLogger(ctx).Warn("OpenList 请求失败，即将重试", "operation", endpoint, "sourcePath", str(payload, "path"), "attempt", i+1, "maxAttempts", tries, "retryInMs", delay.Milliseconds(), "error", e.Error())
 		select {
 		case <-ctx.Done():
 			return nil, ctx.Err()
@@ -231,7 +232,12 @@ func (a *App) scan(ctx context.Context, c Object, root string) ([]remoteFile, er
 			go func() {
 				defer wg.Done()
 				for d := range jobs {
+					logger := a.contextLogger(ctx)
+					logger.Debug("正在读取目录", "stage", "DISCOVERY", "sourcePath", d)
 					f, e := a.list(ctx, c, d)
+					if e != nil {
+						e = fmt.Errorf("读取目录 %s 失败: %w", d, e)
+					}
 					results <- result{f, e}
 				}
 			}()

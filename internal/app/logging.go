@@ -2,6 +2,7 @@ package app
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"log/slog"
 	"os"
@@ -90,4 +91,18 @@ func (l logFanout) Write(p []byte) (int, error) {
 		_, e = l.errors.Write(p)
 	}
 	return n, e
+}
+
+// A context carries immutable correlation fields into concurrent directory scans.
+type taskLogKey struct{}
+
+func (a *App) taskLogger(t, r Object) *slog.Logger {
+	return a.Log.With("taskId", num(t, "id"), "taskName", str(t, "taskName"), "runId", num(r, "id"))
+}
+
+func (a *App) contextLogger(ctx context.Context) *slog.Logger {
+	if logger, ok := ctx.Value(taskLogKey{}).(*slog.Logger); ok {
+		return logger
+	}
+	return a.Log
 }

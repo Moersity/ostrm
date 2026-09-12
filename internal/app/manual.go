@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 )
 
 func (a *App) directoryTree(ctx context.Context, t, c Object, dir string) (Object, error) {
@@ -381,7 +382,25 @@ func (a *App) manualStep(ctx context.Context, c, r Object, key, endpoint string,
 	_, e = a.Store.Save("manual", num(r, "id"), r)
 	return e
 }
-func (a *App) executeManual(ctx context.Context, t, c, s, r Object) error {
+func (a *App) executeManual(ctx context.Context, t, c, s, r Object) (runErr error) {
+	started := time.Now()
+	logger := a.contextLogger(ctx).With("manualJobId", num(r, "id"))
+	if ctx.Value(taskLogKey{}) == nil {
+		logger = logger.With("taskId", num(t, "id"), "taskName", str(t, "taskName"))
+	}
+	ctx = context.WithValue(ctx, taskLogKey{}, logger)
+	logger.Info("整理作业开始", "sourcePath", str(obj(r, "plan"), "directoryPath"))
+	defer func() {
+		if runErr != nil {
+			if ctx.Err() != nil {
+				logger.Warn("整理作业已取消", "stage", str(r, "stage"), "error", runErr.Error())
+			} else {
+				logger.Error("整理作业失败", "stage", str(r, "stage"), "sourcePath", str(obj(r, "plan"), "directoryPath"), "error", runErr.Error(), "durationMs", time.Since(started).Milliseconds())
+			}
+		} else {
+			logger.Info("整理作业完成", "durationMs", time.Since(started).Milliseconds())
+		}
+	}()
 	p := obj(r, "plan")
 	dir := str(p, "directoryPath")
 	m := obj(p, "metadata")
@@ -402,6 +421,7 @@ func (a *App) executeManual(ctx context.Context, t, c, s, r Object) error {
 				continue
 			}
 			source := str(item, "sourcePath")
+			logger.Info("正在重命名", "stage", "RENAMING", "sourcePath", source, "targetName", str(item, "targetName"))
 			key := "rename-" + strconv.Itoa(i)
 			state := str(obj(obj(r, "steps"), key), "state")
 			if state == "" {
@@ -430,6 +450,7 @@ func (a *App) executeManual(ctx context.Context, t, c, s, r Object) error {
 		_ = json.Unmarshal(rawDirs, &seasonItems)
 		for i, item := range seasonItems {
 			source := str(item, "sourcePath")
+			logger.Info("正在重命名", "stage", "RENAMING", "sourcePath", source, "targetName", str(item, "targetName"))
 			key := "season-" + strconv.Itoa(i)
 			if str(obj(obj(r, "steps"), key), "state") == "" {
 				siblings, err := a.list(ctx, c, path.Dir(source))
@@ -590,6 +611,7 @@ func (a *App) autoRename(ctx context.Context, t, c, s Object, files []remoteFile
 	}
 	sort.Strings(ordered)
 	for _, dir := range ordered {
+		a.contextLogger(ctx).Info("正在自动整理", "stage", "RENAME", "sourcePath", dir)
 		p, e := a.preview(ctx, t, c, s, Object{"directoryPath": dir})
 		if e != nil {
 			return e
