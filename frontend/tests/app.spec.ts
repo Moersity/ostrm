@@ -1,7 +1,7 @@
 import { createServer } from 'node:http'
 import { once } from 'node:events'
 import { test, expect } from '@playwright/test'
-test('embedded UI registration, login, settings and task navigation', async ({page,request}) => {
+test('embedded UI registration, login, settings and task navigation', async ({page,request}, testInfo) => {
  const server=createServer((req,res)=>{res.setHeader('Content-Type','application/json');res.end(JSON.stringify({code:200,data:{content:[{name:'Mayday.2026.1080p.mkv',is_dir:false,size:10,sign:'test'},{name:'Mayday.2026.2160p.DV.mkv',is_dir:false,size:20,sign:'test'}],total:2}}))})
  server.listen(0,'127.0.0.1');await once(server,'listening')
  const port=(server.address() as {port:number}).port
@@ -34,7 +34,35 @@ test('embedded UI registration, login, settings and task navigation', async ({pa
  await page.getByRole('button',{name:'关闭',exact:true}).click()
  await page.getByTitle('立即执行' ,{exact:true}).click()
  await page.getByText('全量执行',{exact:true}).click()
- await expect(page.getByText('已完成 · FINALIZE',{exact:true})).toBeVisible({timeout:15000})
+ await expect(page.getByText('本次任务已完成',{exact:true})).toBeVisible({timeout:15000})
+ // Exercise long-running, indeterminate and failed progress without waiting for remote services.
+ let progressRun: Record<string, any> = {id:901,status:'RUNNING',stage:'DISCOVERY',progress:0,startedAtUnixMs:Date.now()-65000,currentFile:'/media/电影收藏',isIncremental:true}
+ await page.route('**/api/task-config/*/runs/latest', route => route.fulfill({json:{code:200,data:progressRun}}))
+ await page.reload()
+ const card=page.getByTestId('task-progress')
+ await expect(card.getByText('扫描文件',{exact:true})).toBeVisible()
+ await expect(card.getByRole('progressbar')).not.toHaveAttribute('aria-valuenow')
+ progressRun={...progressRun,stage:'METADATA',progress:37,total:120,processed:42,skipped:6,failed:1,currentFileIndex:50,currentFile:'/media/电影收藏/星际穿越 (2014)/Interstellar.2014.2160p.BluRay.REMUX.mkv'}
+ await expect(card.getByText('刮削元数据',{exact:true})).toBeVisible()
+ await expect(card.getByRole('progressbar')).toHaveAttribute('aria-valuenow','37')
+ await page.screenshot({path:testInfo.outputPath('progress-desktop.png'),fullPage:true})
+ await page.setViewportSize({width:390,height:844})
+ await card.scrollIntoViewIfNeeded()
+ await page.screenshot({path:testInfo.outputPath('progress-mobile.png'),fullPage:true})
+ expect(await card.evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true)
+ await page.route('**/api/task-config/*/cancel', route=>route.fulfill({json:{code:400,message:'取消暂不可用'}}))
+ await card.getByRole('button',{name:'取消任务',exact:true}).click()
+ await expect(card.getByRole('alert')).toHaveText('取消暂不可用')
+ await expect(card.getByRole('button',{name:'取消任务',exact:true})).toBeEnabled()
+ progressRun={...progressRun,status:'FAILED',failureStage:'METADATA',durationMs:68000,errorMessage:'远端服务不可用',issues:[{sourcePath:'/media/星际穿越.mkv',stage:'METADATA',reason:'TMDB 请求超时'}]}
+ await expect(card.getByText('执行失败',{exact:true})).toBeVisible()
+ await card.getByText('查看失败详情（1）',{exact:true}).click()
+ await expect(card.getByText('刮削元数据：TMDB 请求超时',{exact:true})).toBeVisible()
+ await expect(card.getByRole('progressbar')).toHaveAttribute('aria-valuenow','37')
+ await page.screenshot({path:testInfo.outputPath('progress-failure.png'),fullPage:true})
+ await page.unroute('**/api/task-config/*/runs/latest')
+ await page.unroute('**/api/task-config/*/cancel')
+ await page.setViewportSize({width:1280,height:720})
  await page.getByTitle('手动刮削',{exact:true}).click()
  await expect(page).toHaveURL(/manual-scraping/)
  await expect(page.getByText('Mayday.2026.1080p.mkv',{exact:true}).first()).toBeVisible()

@@ -201,5 +201,9 @@ func canonicalRoot(p string) string {
 func pathsOverlap(a, b string) bool {
 	a = strings.ToLower(filepath.Clean(canonicalRoot(a)))
 	b = strings.ToLower(filepath.Clean(canonicalRoot(b)))
-	return a == b || strings.HasPrefix(a, b+string(os.PathSeparator)) || strings.HasPrefix(b, a+string(os.PathSeparator))
+	contains := func(parent, child string) bool {
+		rel, err := filepath.Rel(parent, child)
+		return err == nil && (rel == "." || filepath.IsLocal(rel))
+	}
+	return contains(a, b) || contains(b, a)
 }

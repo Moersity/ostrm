@@ -57,6 +57,17 @@ func TestTaskLogsCorrelateFilesAndFailures(t *testing.T) {
 				cancel()
 			}
 			a.execute(ctx, task, Object{"baseUrl": server.URL, "token": "private-token"}, settings, run)
+			if run["startedAtUnixMs"] == nil || run["durationMs"] == nil {
+				t.Fatal("missing elapsed time", run)
+			}
+			if scenario == "scan_failure" || scenario == "canceled" {
+				if num(run, "progress") == 100 || str(run, "stage") == "FINALIZE" {
+					t.Fatal("unfinished task reported complete", run)
+				}
+			}
+			if scenario == "success" && (num(run, "progress") != 100 || str(run, "currentFile") != "") {
+				t.Fatal("completed task retains active progress", run)
+			}
 			records := readLogRecords(t, a, "backend")
 			foundFile, foundFinish := false, false
 			for _, record := range records {

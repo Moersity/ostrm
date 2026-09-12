@@ -92,6 +92,7 @@ func OpenStore(dir string) (*Store, error) {
 		return fail(errors.New("数据库版本高于程序支持的版本"))
 	}
 	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS records(kind TEXT NOT NULL,id INTEGER NOT NULL,body TEXT NOT NULL,PRIMARY KEY(kind,id));
+ CREATE INDEX IF NOT EXISTS records_task_latest ON records(kind,json_extract(body,'$.taskId'),id DESC) WHERE kind IN ('runs','manual');
  CREATE TABLE IF NOT EXISTS sequences(kind TEXT PRIMARY KEY,value INTEGER NOT NULL);
  CREATE TABLE IF NOT EXISTS admin(id INTEGER PRIMARY KEY CHECK(id=1),username TEXT NOT NULL,password TEXT NOT NULL);
  CREATE TABLE IF NOT EXISTS sessions(id TEXT PRIMARY KEY,username TEXT NOT NULL,expires INTEGER NOT NULL);
@@ -125,6 +126,25 @@ func (s *Store) List(kind string) ([]Object, error) {
 	}
 	return out, rows.Err()
 }
+
+// LatestTaskRecord avoids loading the complete execution history on every poll.
+func (s *Store) LatestTaskRecord(kind string, taskID int64) (Object, error) {
+	if kind != "runs" && kind != "manual" {
+		return nil, errors.New("无效执行记录类型")
+	}
+	var body string
+	err := s.DB.QueryRow(`SELECT body FROM records WHERE kind IN ('runs','manual') AND kind=? AND json_extract(body,'$.taskId')=? ORDER BY id DESC LIMIT 1`, kind, taskID).Scan(&body)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var record Object
+	err = json.Unmarshal([]byte(body), &record)
+	return record, err
+}
+
 func (s *Store) Get(kind string, id int64) (Object, error) {
 	var b string
 	e := s.DB.QueryRow("SELECT body FROM records WHERE kind=? AND id=?", kind, id).Scan(&b)
