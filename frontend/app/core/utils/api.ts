@@ -63,7 +63,8 @@ export function getApiBaseUrl(): string {
  */
 export async function apiCall<T = unknown>(
   endpoint: string,
-  options: ApiRequestOptions = {}
+  options: ApiRequestOptions = {},
+  handle401 = true
 ): Promise<ApiResponse<T>> {
   const baseUrl = getApiBaseUrl()
   // 确保 endpoint 以 / 开头，避免重复的 /api 前缀
@@ -90,7 +91,7 @@ export async function apiCall<T = unknown>(
     console.error(`API 调用失败: ${url}`, error)
 
     // 全局处理 401 未授权错误
-    if (fetchError.status === 401) {
+    if (fetchError.status === 401 && handle401) {
       await handleUnauthorizedError()
     }
 
@@ -191,7 +192,7 @@ export async function authenticatedApiCall<T = unknown>(
   }
 
   try {
-    return await apiCall<T>(endpoint, authOptions)
+    return await apiCall<T>(endpoint, authOptions, false)
   } catch (error: unknown) {
     const apiError = error as ApiError
     // 如果是 401 错误且还没尝试过刷新，尝试刷新后重试
@@ -206,6 +207,8 @@ export async function authenticatedApiCall<T = unknown>(
       }
     }
     
+    if (apiError.status === 401) await handleUnauthorizedError()
+
     // 刷新失败或其他错误，继续抛出
     throw error
   }

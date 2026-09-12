@@ -23,6 +23,7 @@ type program struct {
 	app      *app.App
 	server   *http.Server
 	listener net.Listener
+	restart  chan struct{}
 }
 
 func (p *program) Start(s service.Service) error { go p.server.Serve(p.listener); return nil }
@@ -127,7 +128,8 @@ func run() error {
 		return e
 	}
 	server := &http.Server{Handler: a.Handler(), ReadHeaderTimeout: 10 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 1 << 20}
-	p := &program{a, server, listener}
+	p := &program{app: a, server: server, listener: listener, restart: make(chan struct{}, 1)}
+	configureRestart(p)
 	fmt.Println("OStrm", app.Version, "http://"+listener.Addr().String())
 	if c.OpenBrowser {
 		go openBrowser("http://" + listener.Addr().String())
@@ -138,14 +140,28 @@ func run() error {
 			a.Close()
 			return e
 		}
+		go func() {
+			<-p.restart
+			if err := restartProcess(p); err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
+		}()
 		return svc.Run()
 	}
-	defer a.Close()
+	defer func() {
+		if a != nil {
+			a.Close()
+		}
+	}()
 	errs := make(chan error, 1)
 	go func() { errs <- server.Serve(listener) }()
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	select {
+	case <-p.restart:
+		a = nil
+		return restartProcess(p)
 	case <-ctx.Done():
 		shutdown, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()

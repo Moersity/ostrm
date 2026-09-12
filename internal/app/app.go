@@ -21,6 +21,13 @@ type cacheEntry struct {
 	until time.Time
 }
 type App struct {
+	Restart       func()
+	versionMu     sync.Mutex
+	release       releaseInfo
+	releaseUntil  time.Time
+	updating      bool
+	upgradeStatus Object
+
 	clients      map[string]*http.Client
 	cache        map[string]cacheEntry
 	Config       Config

@@ -46,7 +46,7 @@
 
           <!-- GitHub 版本链接 -->
           <a
-            href="https://github.com/hienao/ostrm"
+            href="https://github.com/Moersity/ostrm"
             target="_blank"
             rel="noopener noreferrer"
             class="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/6 hover:bg-white/10 hover:border-white/12 transition-all text-xs text-white/50 hover:text-white/80"
@@ -57,28 +57,6 @@
             </svg>
             <span class="font-mono">{{ appVersion }}</span>
           </a>
-
-          <!-- 新版本提示 -->
-          <div
-            v-if="versionStore.getShowUpdateNotice"
-            class="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 rounded-lg cursor-pointer hover:from-amber-500/30 hover:to-orange-500/30 transition-all"
-            @click="handleUpdateClick"
-            title="点击查看新版本"
-          >
-            <svg class="w-3.5 h-3.5 text-amber-400" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
-            </svg>
-            <span class="text-xs font-medium text-amber-300">v{{ versionStore.latestVersion }}</span>
-            <button
-              @click.stop="ignoreThisVersion"
-              class="ml-1 p-0.5 hover:bg-white/10 rounded transition-colors"
-              title="忽略此版本"
-            >
-              <svg class="w-3 h-3 text-amber-400/70" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-              </svg>
-            </button>
-          </div>
         </div>
 
         <!-- 右侧操作按钮 -->
@@ -218,12 +196,12 @@
         </div>
       </div>
     </div>
+    <UpdateNotice />
   </header>
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRuntimeConfig } from '#app'
 import { useAuthStore } from '~/core/stores/auth'
 import { useVersionStore } from '~/core/stores/version.js'
@@ -232,7 +210,6 @@ const config = useRuntimeConfig()
 const appVersion = computed(() => config.public.appVersion || 'dev')
 const authStore = useAuthStore()
 const versionStore = useVersionStore()
-const router = useRouter()
 
 const showMobileMenu = ref(false)
 
@@ -262,27 +239,17 @@ const displayUserInfo = computed(() => {
   return { username: '用户' }
 })
 
+let versionTimer
 onMounted(() => {
   authStore.restoreAuth()
   versionStore.restoreFromStorage()
-  setTimeout(() => {
-    versionStore.checkVersion()
-  }, 2000)
+  versionStore.checkVersion()
+  versionTimer = setInterval(() => versionStore.checkVersion(), 60 * 60 * 1000)
 })
 
+onUnmounted(() => clearInterval(versionTimer))
+
 const emit = defineEmits(['logout', 'changePassword', 'goBack', 'openSettings', 'openLogs'])
-
-const handleUpdateClick = () => {
-  if (versionStore.updateInfo?.releaseUrl) {
-    window.open(versionStore.updateInfo.releaseUrl, '_blank')
-  }
-}
-
-const ignoreThisVersion = () => {
-  if (versionStore.latestVersion) {
-    versionStore.ignoreVersion(versionStore.latestVersion)
-  }
-}
 
 const toggleMobileMenu = () => {
   showMobileMenu.value = !showMobileMenu.value

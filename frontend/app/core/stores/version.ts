@@ -6,6 +6,7 @@
  */
 
 import { defineStore } from 'pinia'
+import { authenticatedApiCall } from '~/core/utils/api'
 
 /**
  * 版本信息类型
@@ -15,6 +16,9 @@ export interface VersionInfo {
   latestVersion: string
   hasUpdate: boolean
   releaseNotes?: string
+  canUpgrade?: boolean
+  upgradeReason?: string
+  releaseUrl?: string
   downloadUrl?: string
   [key: string]: unknown
 }
@@ -102,15 +106,7 @@ export const useVersionStore = defineStore('version', {
         this.isLoading = true
         this.error = null
 
-        const config = useRuntimeConfig()
-        const currentVersion = (config.public.appVersion as string) || 'dev'
-
-        const response = await $fetch<VersionCheckResponse>('/api/version/check', {
-          method: 'GET',
-          params: {
-            currentVersion
-          }
-        })
+        const response = await authenticatedApiCall<VersionInfo>('/version/check')
 
         if (response.code === 200 && response.data) {
           const data = response.data
