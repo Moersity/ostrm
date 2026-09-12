@@ -137,6 +137,7 @@ func (a *App) execute(ctx context.Context, t, c, s, r Object) {
 	logger.Info("任务开始", "stage", "DISCOVERY", "sourcePath", str(t, "path"), "outputPath", str(t, "strmPath"), "incremental", boolean(t, "isIncrement", true))
 	r["status"] = "RUNNING"
 	r["startedAt"] = now()
+	r["startedAtUnixMs"] = started.UnixMilli()
 	a.updateRun(r)
 	err := a.executeFiles(ctx, t, c, s, r)
 	if err != nil {
@@ -165,8 +166,13 @@ func (a *App) execute(ctx context.Context, t, c, s, r Object) {
 	}
 	logger.Log(ctx, level, "任务结束", "stage", finishStage, "status", str(r, "status"), "total", num(r, "total"), "processed", num(r, "processed"), "failed", num(r, "failed"), "skipped", num(r, "skipped"), "changed", num(r, "changed"), "cleaned", num(r, "cleaned"), "durationMs", time.Since(started).Milliseconds(), "error", str(r, "errorMessage"))
 	r["completedAt"] = now()
-	r["progress"] = 100
-	r["stage"] = "FINALIZE"
+	r["durationMs"] = time.Since(started).Milliseconds()
+	if str(r, "status") == "SUCCESS" || str(r, "status") == "PARTIAL_SUCCESS" {
+		r["progress"] = 100
+		r["stage"] = "FINALIZE"
+		delete(r, "currentFile")
+		delete(r, "currentOutput")
+	}
 	a.updateRun(r)
 	a.configMu.Lock()
 	fresh, e := a.Store.Get("tasks", num(t, "id"))
@@ -195,6 +201,15 @@ func (a *App) execute(ctx context.Context, t, c, s, r Object) {
 }
 func (a *App) executeFiles(ctx context.Context, t, c, s, r Object) (runErr error) {
 	logger := a.contextLogger(ctx)
+	lastProgress := time.Time{}
+	publishProgress := func(stage, file, output string, force bool) {
+		stageChanged := str(r, "stage") != stage
+		r["stage"], r["currentFile"], r["currentOutput"] = stage, file, output
+		if force || stageChanged || time.Since(lastProgress) >= 500*time.Millisecond {
+			a.updateRun(r)
+			lastProgress = time.Now()
+		}
+	}
 	stage, source, output := "DISCOVERY", str(t, "path"), str(t, "strmPath")
 	defer func() {
 		if runErr != nil && ctx.Err() == nil {
@@ -202,6 +217,7 @@ func (a *App) executeFiles(ctx context.Context, t, c, s, r Object) (runErr error
 			logger.Error("任务阶段失败", "stage", stage, "sourcePath", source, "outputPath", output, "error", runErr.Error())
 		}
 	}()
+	publishProgress("DISCOVERY", str(t, "path"), "", true)
 	logger.Info("开始扫描目录", "stage", "DISCOVERY", "sourcePath", str(t, "path"))
 	files, e := a.scan(ctx, c, str(t, "path"))
 	if e != nil {
@@ -210,17 +226,21 @@ func (a *App) executeFiles(ctx context.Context, t, c, s, r Object) (runErr error
 	logger.Info("目录扫描完成", "stage", "DISCOVERY", "entries", len(files))
 	if boolean(t, "autoRenameMedia", false) {
 		stage = "RENAME"
+		publishProgress(stage, str(t, "path"), "", true)
 		logger.Info("开始自动整理", "stage", "RENAME")
 		if e = a.autoRename(ctx, t, c, s, files); e != nil {
 			return e
 		}
 		stage = "DISCOVERY"
+		publishProgress(stage, str(t, "path"), "", true)
 		files, e = a.scan(ctx, c, str(t, "path"))
 		if e != nil {
 			return e
 		}
 	}
 	stage = "PREPARE_OUTPUT"
+	r["discovered"] = len(files)
+	publishProgress(stage, "", str(t, "strmPath"), true)
 	root := str(t, "strmPath")
 	if e = os.MkdirAll(root, 0755); e != nil {
 		return e
@@ -353,10 +373,13 @@ func (a *App) executeFiles(ctx context.Context, t, c, s, r Object) (runErr error
 			fileStarted := time.Now()
 			fileLog := logger.With("sourcePath", f.Path, "outputPath", filepath.Join(root, dest), "fileIndex", i+1, "total", len(vids))
 			stage = "WRITE_STRM"
+			r["currentFileIndex"] = i + 1
+			publishProgress(stage, f.Path, output, false)
 			fileLog.Info("开始处理文件", "stage", stage)
 			e = write(dest, f.Path, []byte(strmURL(c, f)))
 			if e == nil && boolean(t, "needScrap", false) {
 				stage = "METADATA"
+				publishProgress(stage, f.Path, output, false)
 				fileLog.Info("开始处理元数据及附属文件", "stage", stage)
 				e = a.processMetadata(ctx, t, c, s, f, dirs[path.Dir(f.Path)], dest, write)
 			}
@@ -378,8 +401,9 @@ func (a *App) executeFiles(ctx context.Context, t, c, s, r Object) (runErr error
 			r["skipped"] = num(r, "skipped") + 1
 		}
 		r["progress"] = ((i + 1) * 90) / max(1, len(vids))
-		if i%25 == 0 || i+1 == len(vids) {
+		if time.Since(lastProgress) >= 500*time.Millisecond || i+1 == len(vids) {
 			a.updateRun(r)
+			lastProgress = time.Now()
 		}
 	}
 	if num(r, "failed") > 0 {
@@ -391,8 +415,8 @@ func (a *App) executeFiles(ctx context.Context, t, c, s, r Object) (runErr error
 	}
 	stage = "CLEANUP"
 	logger.Info("开始清理失效输出", "stage", "CLEANUP")
-	r["stage"] = "CLEANUP"
-	a.updateRun(r)
+	r["progress"] = 95
+	publishProgress("CLEANUP", "", "", true)
 	// Keep metadata whose source remains present. Only owned outputs from deleted sources are cleaned.
 	for rel, v := range owned {
 		m, _ := v.(map[string]any)
@@ -406,6 +430,7 @@ func (a *App) executeFiles(ctx context.Context, t, c, s, r Object) (runErr error
 			continue
 		}
 		source, output = src, filepath.Join(root, rel)
+		publishProgress("CLEANUP", source, output, false)
 		logger.Debug("检查失效输出", "stage", "CLEANUP", "sourcePath", src, "outputPath", filepath.Join(root, rel))
 		rr, e := os.OpenRoot(root)
 		if e != nil {

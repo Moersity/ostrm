@@ -249,13 +249,11 @@ func (a *App) Handler() http.Handler {
 	})
 	for suffix, kind := range map[string]string{"runs": "runs", "manual-scraping/jobs": "manual"} {
 		handle("GET /api/task-config/{id}/"+suffix+"/latest", func(r *http.Request) (any, error) {
-			rs, e := a.Store.List(kind)
-			for i := len(rs) - 1; i >= 0; i-- {
-				if num(rs[i], "taskId") == idParam(r, "id") {
-					return publicRun(rs[i]), e
-				}
+			record, e := a.Store.LatestTaskRecord(kind, idParam(r, "id"))
+			if record == nil {
+				return nil, e
 			}
-			return nil, e
+			return publicRun(record), e
 		})
 		handle("GET /api/task-config/{id}/"+suffix+"/{jobId}", func(r *http.Request) (any, error) {
 			m, e := a.Store.Get(kind, idParam(r, "jobId"))

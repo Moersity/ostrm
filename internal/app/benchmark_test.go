@@ -39,3 +39,47 @@ func BenchmarkScan(b *testing.B) {
 		})
 	}
 }
+
+func BenchmarkLatestTaskRecord(b *testing.B) {
+	store, err := OpenStore(b.TempDir())
+	if err != nil {
+		b.Fatal(err)
+	}
+	defer store.DB.Close()
+	tx, err := store.DB.Begin()
+	if err != nil {
+		b.Fatal(err)
+	}
+	for i := 1; i <= 10000; i++ {
+		body, _ := json.Marshal(Object{"id": i, "taskId": i % 100, "status": "SUCCESS", "issues": []Object{{"sourcePath": "/media/movie.mkv", "reason": "example"}}})
+		if _, err = tx.Exec("INSERT INTO records(kind,id,body) VALUES('runs',?,?)", i, string(body)); err != nil {
+			b.Fatal(err)
+		}
+	}
+	if err = tx.Commit(); err != nil {
+		b.Fatal(err)
+	}
+	b.Run("full_history", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			records, err := store.List("runs")
+			if err != nil {
+				b.Fatal(err)
+			}
+			for j := len(records) - 1; j >= 0; j-- {
+				if num(records[j], "taskId") == 1 {
+					break
+				}
+			}
+		}
+	})
+	b.Run("indexed_latest", func(b *testing.B) {
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			record, err := store.LatestTaskRecord("runs", 1)
+			if err != nil || num(record, "id") != 9901 {
+				b.Fatal(record, err)
+			}
+		}
+	})
+}

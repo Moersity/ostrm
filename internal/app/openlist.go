@@ -33,6 +33,9 @@ type limiter struct {
 
 func (l *limiter) wait(ctx context.Context, qps, qpm int64) error {
 	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		l.mu.Lock()
 		n := time.Now()
 		start := 0
@@ -101,6 +104,9 @@ func (a *App) requestClient(ctx context.Context, client *http.Client, method, ta
 	}
 	resp, e := client.Do(req)
 	if e != nil {
+		if ctx.Err() != nil {
+			return nil, 0, ctx.Err()
+		}
 		return nil, 0, fmt.Errorf("外部服务请求失败 (%s)", errorKind(e))
 	}
 	defer resp.Body.Close()
@@ -201,6 +207,9 @@ func (a *App) list(ctx context.Context, c Object, dir string) ([]remoteFile, err
 			}
 			f.Path = path.Join(dir, f.Name)
 		}
+		if len(out)+len(files) > scanEntryLimit {
+			return nil, errors.New("目录条目超过100万")
+		}
 		out = append(out, files...)
 		total := num(m, "total")
 		if len(files) == 0 {
@@ -215,7 +224,12 @@ func (a *App) list(ctx context.Context, c Object, dir string) ([]remoteFile, err
 	}
 	return nil, errors.New("目录分页超过限制")
 }
+
+const scanEntryLimit = 1000000
+
 func (a *App) scan(ctx context.Context, c Object, root string) ([]remoteFile, error) {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	all := []remoteFile{}
 	dirs := []string{root}
 	seen := map[string]bool{root: true}
@@ -225,13 +239,16 @@ func (a *App) scan(ctx context.Context, c Object, root string) ([]remoteFile, er
 			err   error
 		}
 		jobs := make(chan string)
-		results := make(chan result, len(dirs))
+		results := make(chan result, 4)
 		var wg sync.WaitGroup
-		for i := 0; i < 4; i++ {
+		for i := 0; i < min(4, len(dirs)); i++ {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
 				for d := range jobs {
+					if ctx.Err() != nil {
+						return
+					}
 					logger := a.contextLogger(ctx)
 					logger.Debug("正在读取目录", "stage", "DISCOVERY", "sourcePath", d)
 					f, e := a.list(ctx, c, d)
@@ -239,23 +256,43 @@ func (a *App) scan(ctx context.Context, c Object, root string) ([]remoteFile, er
 						e = fmt.Errorf("读取目录 %s 失败: %w", d, e)
 					}
 					results <- result{f, e}
+					if e != nil {
+						return
+					}
 				}
 			}()
 		}
+		wg.Add(1)
 		go func(batch []string) {
+			defer wg.Done()
 			defer close(jobs)
 			for _, d := range batch {
-				jobs <- d
+				select {
+				case jobs <- d:
+				case <-ctx.Done():
+					return
+				}
 			}
 		}(dirs)
-		wg.Wait()
-		close(results)
+		go func() { wg.Wait(); close(results) }()
 		next := []string{}
+		var firstErr error
 		for r := range results {
+			// Drain workers before returning so canceled requests cannot outlive the scan.
+			if firstErr != nil {
+				continue
+			}
 			if r.err != nil {
-				return nil, r.err
+				firstErr = r.err
+				cancel()
+				continue
 			}
 			for _, f := range r.files {
+				if len(all) >= scanEntryLimit {
+					firstErr = errors.New("扫描条目超过100万")
+					cancel()
+					break
+				}
 				all = append(all, f)
 				if f.IsDir && !seen[f.Path] {
 					seen[f.Path] = true
@@ -263,10 +300,13 @@ func (a *App) scan(ctx context.Context, c Object, root string) ([]remoteFile, er
 				}
 			}
 		}
-		dirs = next
-		if len(all) > 1000000 {
-			return nil, errors.New("扫描条目超过100万")
+		if firstErr != nil {
+			return nil, firstErr
 		}
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		dirs = next
 	}
 	sort.Slice(all, func(i, j int) bool { return all[i].Path < all[j].Path })
 	return all, ctx.Err()
